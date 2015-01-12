@@ -50,13 +50,33 @@ Fuse: F2452-ND
 #define ADS_DATARATE_15		3 << 2
 #define ADS_CONTINUOUS		0
 #define ADS_SINGLE			1 << 4
-#define ADS_START			1 << 7
-#define ADS_READY			1 << 7
+#define ADS_START			1 << 7 //set to start a conversion in single mode
+#define ADS_NOTREADY		1 << 7 //set if data is old or not ready yet 0 if new/good data
+//This sets up 15 samples per second (16bit precision), 1x gain, and manual triggering of samples
+//Also triggers a reading immediately.
+#define ADS_CONFIG			ADS_DATARATE_15 | ADS_GAIN_1 | ADS_SINGLE | ADS_START
 
 const uint8_t VBat[4][2] = {
 								{SWITCH_VBAT1_H, SWITCH_VBAT2_L},{SWITCH_VBAT2_H, SWITCH_VBAT3_L}, 
 								{SWITCH_VBAT3_H, SWITCH_VBAT4_L},{SWITCH_VBAT4_H,SWITCH_VBATRTN}
 						   };
+
+//There are three full readings per second so 32 entries is about 10 seconds worth of data
+//Thus, the average of all these readings is a 10 second average of the pack performance
+int16_t vReading[4][32];
+int16_t tReading[4][32];
+byte vReadingPos, tReadingPos;
+
+struct EEPROMSettings {
+	uint8_t version;
+	uint32_t CAN0Speed;
+	boolean CAN0_Enabled;
+	
+	uint8_t logLevel; //Level of logging to output on serial line
+
+	uint16_t valid; //stores a validity token to make sure EEPROM is not corrupt
+};
+
 void setAllVOff()
 {
   digitalWriteNonDue( SWITCH_VBAT1_H, LOW );
@@ -106,6 +126,30 @@ void canbusTermDisable()
   digitalWriteNonDue( CAN_TERM_2, LOW );
 }
 
+//ask for a reading to start. Currently we support 15 reads per second so one must wait
+// at least 1000 / 15 = 67ms before trying to get the answer
+void adsStartConversion(uint8_t addr)
+{
+  Wire.beginTransmission(addr); 
+  Wire.write(ADS_CONFIG);
+  Wire.endTransmission();
+}
+
+//returns true if data was waiting or false if it was not
+bool adsGetData(byte addr, int16_t &value)
+{
+  byte status;
+
+  //we ask to read the ADC value
+  Wire.requestFrom(addr, 3); 
+  value = Wire.read(); // first received byte is high byte of conversion data
+  value <<= 8;
+  value += Wire.read(); // second received byte is low byte of conversion data
+  status = Wire.read(); // third received byte is the status register  
+  if (status & ADS_NOTREADY) return false;
+  return true;
+}
+
 void setupHardware()
 {
   //Battery voltage inputs
@@ -129,6 +173,40 @@ void setupHardware()
   pinModeNonDue(CAN_TERM_1, OUTPUT );  
   pinModeNonDue(CAN_TERM_2, OUTPUT );
   canbusTermDisable();
+
+  Can0.begin(250000, 255); //no enable pin
+  Can0.watchFor(); //open up the floodgates for now
+}
+
+//periodic tick that handles reading ADCs and doing other stuff that happens on a schedule.
+//There are four voltage readings and four thermistor readings and they are on separate
+//ads chips so each can be read every cycle which means it takes exactly 320ms to read the whole pack
+//Or, the pack is fully characterized three times per second. Not too shabby!
+void timerTick()
+{
+	static byte vNum, tNum; //which voltage and thermistor reading we're on
+
+	int16_t readValue;
+	
+	//read the values from the previous cycle
+	//if there is a problem we won't update the values stored
+	if (adsGetData(VIN_ADDR, readValue)) 
+	{
+		vReading[vNum][vReadingPos] = readValue;
+		vReadingPos = (vReadingPos + 1) & 31;
+	}
+
+	if (adsGetData(THERM_ADDR, readValue)) 
+	{
+		tReading[vNum][tReadingPos] = readValue;
+		tReadingPos = (tReadingPos + 1) & 31;
+	}
+
+	//Set up for the next set of readings
+	setVEnable(vNum++);
+	adsStartConversion(VIN_ADDR);
+	setThermActive(SWITCH_THERM1 + tNum++);
+	adsStartConversion(THERM_ADDR);
 }
 
 void setup()
@@ -137,20 +215,9 @@ void setup()
   SerialUSB.begin(115200);
 
   setupHardware();
-}
 
-
-void adsGetData(byte addr, byte &a, byte &b, byte &c)
-{
-  // move the register pointer back to the first register
-  Wire.beginTransmission(addr); 
-  Wire.write(0x0C);
-  Wire.endTransmission();
-  // now get the data from the ADS1110
-  Wire.requestFrom(addr, 3); 
-  a = Wire.read(); // first received byte is high byte of conversion data
-  b = Wire.read(); // second received byte is low byte of conversion data
-  c = Wire.read(); // third received byte is the status register
+  Timer3.attachInterrupt(timerTick);
+  Timer3.start(80000); //trigger every 80ms
 }
 
 void loop()
