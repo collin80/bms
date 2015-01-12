@@ -207,6 +207,10 @@ void timerTick()
 	adsStartConversion(VIN_ADDR);
 	setThermActive(SWITCH_THERM1 + tNum++);
 	adsStartConversion(THERM_ADDR);
+	
+	//constrain these back to valid range 0-3
+	vNum &= 3;
+	tNum &= 3;
 }
 
 void setup()
