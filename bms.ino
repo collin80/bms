@@ -39,6 +39,9 @@ Fuse: F2452-ND
 #define CAN_TERM_1		X21
 #define CAN_TERM_2		X22
 
+#define BALANCE_THRESHOLD	1000 //totally arbitrary value. Eventually this wont be hard coded anyway
+#define VOLTAGE_MULTIPLIER	0.00434f //also totally made up. Take measurements and fix this. 
+
 //ADS1110 Config Defines
 #define ADS_GAIN_1			0
 #define ADS_GAIN_2			1
@@ -71,6 +74,14 @@ struct EEPROMSettings {
 	uint8_t version;
 	uint32_t CAN0Speed;
 	boolean CAN0_Enabled;
+
+	int16_t balanceThreshold;
+	
+	//these two turn the ADC readings into volts/degrees.
+	//Apparently first gen hardware actually has non-linearity for temp so handle specially.
+	//Each ADC channel has its own multipler because the hardware used could have some differences in resistance
+	float vMultiplier[4];
+	float tMultiplier[4]; 
 	
 	uint8_t logLevel; //Level of logging to output on serial line
 
@@ -211,6 +222,31 @@ void timerTick()
 	//constrain these back to valid range 0-3
 	vNum &= 3;
 	tNum &= 3;
+
+	int32_t vAccum[4], tAccum[4];
+	int16_t vHigh = -10000, vLow = 30000;
+
+	for (int y = 0; y < 4; y++)
+	{
+		vAccum[y] = 0;
+		tAccum[y] = 0;
+		for (int x = 0; x < 32; x++)
+		{
+			vAccum[y] += vReading[y][x];
+			tAccum[y] += tReading[y][x];
+		}
+		//now get averages.
+		vAccum[y] /= 32;
+		tAccum[y] /= 32;
+		if (vAccum[y] > vHigh) vHigh = vAccum[y];
+		if (vAccum[y] < vLow) vLow = vAccum[y];
+	}
+
+	//Now, if the difference between vLow and vHigh is too high then there is a serious pack balancing problem
+	//and we should let someone know
+	if (vHigh - vLow > BALANCE_THRESHOLD)
+	{
+	}
 }
 
 void setup()
