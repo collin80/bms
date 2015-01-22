@@ -34,6 +34,7 @@ This is the golden combo.
 #include <Wire_EEPROM.h>
 #include <DueTimer.h>
 #include "config.h"
+#include "SerialConsole.h"
 
 
 //There are three full readings per second so 32 entries is about 10 seconds worth of data
@@ -48,6 +49,7 @@ const uint8_t VBat[4][2] = {
 						   };
 
 EEPROMSettings settings;
+SerialConsole	console;
 
 /*Load settings from EEPROM. Fill out settings if not initialized yet*/
 void loadEEPROM()
@@ -305,9 +307,14 @@ void setup()
 
   Timer3.attachInterrupt(timerTick);
   Timer3.start(80000); //trigger every 80ms
+
+  console.printMenu();
 }
 
 void loop()
 {
-  
+	if (SerialUSB.available()) 
+	{
+		console.rcvCharacter((uint8_t)SerialUSB.read);
+	}
 }
