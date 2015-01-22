@@ -6,10 +6,24 @@ There are four thermistor inputs and four voltage inputs. The voltages are based
 place five voltage taps - one at each end of the pack (+ and -) and three at the quadrant points in the middle
 All five points on the pack should have 50k resistors to the battery. These resistors should also be fused
 with something like a 1A fuse just in case a short develops. The resistors should be sturdy so that vibration
-does not cause them to fail.
+does not cause them to fail. Or, the alternative way is to use 30 to 26 ga wire so that a short just burns the wire
+up in a wisp of smoke. That will work as well.
+Feel like ordering from DigiKey?
 A resistor that would work: 696-1513-ND
 Fuse Holder: 02540202Z-ND
 Fuse: F2452-ND
+
+This device has voltage and temperate input but no current so there are two basic choices for current:
+1. You can buy a CAB300 canbus connected current sensor. This code will accept input from such a sensor
+2. You can also buy a JLD505 and use the current reporting capability of that device.
+
+This device also does not drive outputs. For output driving you will have to use either a JLD505 or a GEVCU.
+For instance, a SOC gauge would be nice. You should probably use the JLD505 for this purpose.
+Another thing you might want to do is disable driving and/or throttle back acceleration when the batteries are getting low.
+We have no output except canbus so the GEVCU will have to be notified of these things.
+
+The bottom line is that maximum configurability and features will be had by using all three devices - JLD505, EVTV BMS, and GEVCU.
+This is the golden combo. 
 
 */
 
@@ -38,9 +52,6 @@ Fuse: F2452-ND
 #define SWITCH_THERM4	X20
 #define CAN_TERM_1		X21
 #define CAN_TERM_2		X22
-
-#define BALANCE_THRESHOLD	1000 //totally arbitrary value. Eventually this wont be hard coded anyway
-#define VOLTAGE_MULTIPLIER	0.00434f //also totally made up. Take measurements and fix this. 
 
 //ADS1110 Config Defines
 #define ADS_GAIN_1			0
@@ -72,10 +83,12 @@ byte vReadingPos, tReadingPos;
 
 struct EEPROMSettings {
 	uint8_t version;
-	uint32_t CAN0Speed;
-	boolean CAN0_Enabled;
+	uint32_t CANSpeed;
+	boolean CAN_Enabled;
 
-	int16_t balanceThreshold;
+	int32_t cab300Address; //either 0x3C0 or 0x3C2 so far. Set to 0 if there isn't one installed in the car.
+
+	int16_t balanceThreshold; //how close in value the min and max sections can be without faulting
 	
 	//these two turn the ADC readings into volts/degrees.
 	//Apparently first gen hardware actually has non-linearity for temp so handle specially.
@@ -87,6 +100,33 @@ struct EEPROMSettings {
 
 	uint16_t valid; //stores a validity token to make sure EEPROM is not corrupt
 };
+
+EEPROMSettings settings;
+
+/*Load settings from EEPROM. Fill out settings if not initialized yet*/
+void loadEEPROM()
+{
+	EEPROM.read(0,settings);
+	if (settings.valid != 0xDE)
+	{
+		settings.balanceThreshold = 0x200;
+		settings.cab300Address = 0x3C0;
+		settings.CANSpeed = 500000;
+		settings.CAN_Enabled = true;
+		settings.logLevel = 1;
+		settings.tMultiplier[0] = 0.045f;
+		settings.tMultiplier[1] = 0.045f;
+		settings.tMultiplier[2] = 0.045f;
+		settings.tMultiplier[3] = 0.045f;
+		settings.vMultiplier[0] = 0.045f;
+		settings.vMultiplier[1] = 0.045f;
+		settings.vMultiplier[2] = 0.045f;
+		settings.vMultiplier[3] = 0.045f;
+		settings.valid = 0xDE;
+		settings.version = 10;		
+		EEPROM.write(0, settings);
+	}
+}
 
 void setAllVOff()
 {
@@ -163,6 +203,7 @@ bool adsGetData(byte addr, int16_t &value)
 
 void setupHardware()
 {
+	loadEEPROM();
   //Battery voltage inputs
   pinModeNonDue(SWITCH_VBAT1_H, OUTPUT );
   pinModeNonDue(SWITCH_VBAT2_L, OUTPUT );
@@ -185,8 +226,11 @@ void setupHardware()
   pinModeNonDue(CAN_TERM_2, OUTPUT );
   canbusTermDisable();
 
-  Can0.begin(250000, 255); //no enable pin
-  Can0.watchFor(); //open up the floodgates for now
+  if (settings.CAN_Enabled)
+  {
+	Can0.begin(settings.CANSpeed, 255); //no enable pin
+	if (settings.cab300Address > 0) Can0.watchFor(settings.cab300Address); //allow through only this address for now
+  }
 }
 
 //periodic tick that handles reading ADCs and doing other stuff that happens on a schedule.
@@ -244,9 +288,14 @@ void timerTick()
 
 	//Now, if the difference between vLow and vHigh is too high then there is a serious pack balancing problem
 	//and we should let someone know
-	if (vHigh - vLow > BALANCE_THRESHOLD)
+	if (vHigh - vLow > settings.balanceThreshold)
 	{
 	}
+	SerialUSB.print(vAccum[0]);
+	SerialUSB.print(vAccum[1]);
+	SerialUSB.print(vAccum[2]);
+	SerialUSB.print(vAccum[3]);
+	SerialUSB.println();
 }
 
 void setup()
