@@ -33,47 +33,8 @@ This is the golden combo.
 #include <due_wire.h>
 #include <Wire_EEPROM.h>
 #include <DueTimer.h>
+#include "config.h"
 
-
-#define VIN_ADDR		0x48 // ADS1110-A0 the device address is 0x48  Voltage input
-#define THERM_ADDR		0x4A // ADS1110-A2 the device address is 0x4A  Thermistor input
-
-#define SWITCH_VBAT1_H	X10
-#define SWITCH_VBAT2_L	X11
-#define SWITCH_VBAT2_H	X9
-#define SWITCH_VBAT3_L	X12
-#define SWITCH_VBAT3_H	X13
-#define SWITCH_VBAT4_L	X14
-#define SWITCH_VBAT4_H	X15
-#define SWITCH_VBATRTN	X16
-#define SWITCH_THERM1	X17
-#define SWITCH_THERM2	X18
-#define SWITCH_THERM3	X19
-#define SWITCH_THERM4	X20
-#define CAN_TERM_1		X21
-#define CAN_TERM_2		X22
-
-//ADS1110 Config Defines
-#define ADS_GAIN_1			0
-#define ADS_GAIN_2			1
-#define ADS_GAIN_4			2
-#define ADS_GAIN_8			3
-#define ADS_DATARATE_240	0
-#define ADS_DATARATE_60		1 << 2
-#define ADS_DATARATE_30		2 << 2
-#define ADS_DATARATE_15		3 << 2
-#define ADS_CONTINUOUS		0
-#define ADS_SINGLE			1 << 4
-#define ADS_START			1 << 7 //set to start a conversion in single mode
-#define ADS_NOTREADY		1 << 7 //set if data is old or not ready yet 0 if new/good data
-//This sets up 15 samples per second (16bit precision), 1x gain, and manual triggering of samples
-//Also triggers a reading immediately.
-#define ADS_CONFIG			ADS_DATARATE_15 | ADS_GAIN_1 | ADS_SINGLE | ADS_START
-
-const uint8_t VBat[4][2] = {
-								{SWITCH_VBAT1_H, SWITCH_VBAT2_L},{SWITCH_VBAT2_H, SWITCH_VBAT3_L}, 
-								{SWITCH_VBAT3_H, SWITCH_VBAT4_L},{SWITCH_VBAT4_H,SWITCH_VBATRTN}
-						   };
 
 //There are three full readings per second so 32 entries is about 10 seconds worth of data
 //Thus, the average of all these readings is a 10 second average of the pack performance
@@ -81,25 +42,10 @@ int16_t vReading[4][32];
 int16_t tReading[4][32];
 byte vReadingPos, tReadingPos;
 
-struct EEPROMSettings {
-	uint8_t version;
-	uint32_t CANSpeed;
-	boolean CAN_Enabled;
-
-	int32_t cab300Address; //either 0x3C0 or 0x3C2 so far. Set to 0 if there isn't one installed in the car.
-
-	int16_t balanceThreshold; //how close in value the min and max sections can be without faulting
-	
-	//these two turn the ADC readings into volts/degrees.
-	//Apparently first gen hardware actually has non-linearity for temp so handle specially.
-	//Each ADC channel has its own multipler because the hardware used could have some differences in resistance
-	float vMultiplier[4];
-	float tMultiplier[4]; 
-	
-	uint8_t logLevel; //Level of logging to output on serial line
-
-	uint16_t valid; //stores a validity token to make sure EEPROM is not corrupt
-};
+const uint8_t VBat[4][2] = {
+								{SWITCH_VBAT1_H, SWITCH_VBAT2_L},{SWITCH_VBAT2_H, SWITCH_VBAT3_L}, 
+								{SWITCH_VBAT3_H, SWITCH_VBAT4_L},{SWITCH_VBAT4_H,SWITCH_VBATRTN}
+						   };
 
 EEPROMSettings settings;
 
@@ -118,10 +64,12 @@ void loadEEPROM()
 		settings.tMultiplier[1] = 0.045f;
 		settings.tMultiplier[2] = 0.045f;
 		settings.tMultiplier[3] = 0.045f;
-		settings.vMultiplier[0] = 0.045f;
-		settings.vMultiplier[1] = 0.045f;
-		settings.vMultiplier[2] = 0.045f;
-		settings.vMultiplier[3] = 0.045f;
+		//voltage multipler calculated based on 100k battery resistance and 2k resistor on board.
+		//The actual multiplier will be a little bit off from this but this value is a good start.
+		settings.vMultiplier[0] = 0.001593752f;
+		settings.vMultiplier[1] = 0.001593752f;
+		settings.vMultiplier[2] = 0.001593752f;
+		settings.vMultiplier[3] = 0.001593752f;
 		settings.valid = 0xDE;
 		settings.version = 10;		
 		EEPROM.write(0, settings);
@@ -231,6 +179,7 @@ void setupHardware()
 	Can0.begin(settings.CANSpeed, 255); //no enable pin
 	if (settings.cab300Address > 0) Can0.watchFor(settings.cab300Address); //allow through only this address for now
   }
+  Can0.setGeneralCallback(canbusRX);
 }
 
 //periodic tick that handles reading ADCs and doing other stuff that happens on a schedule.
@@ -291,11 +240,60 @@ void timerTick()
 	if (vHigh - vLow > settings.balanceThreshold)
 	{
 	}
+
 	SerialUSB.print(vAccum[0]);
 	SerialUSB.print(vAccum[1]);
 	SerialUSB.print(vAccum[2]);
 	SerialUSB.print(vAccum[3]);
 	SerialUSB.println();
+}
+
+void canbusRX(CAN_FRAME *frame)
+{
+	if (frame->id == settings.cab300Address)
+	{
+		if (frame->data.byte[4] & 1) //ERROR!
+		{
+			SerialUSB.print("CAB300 - ");
+			byte faultCode = frame->data.byte[4] >> 1;
+			switch (faultCode)
+			{
+			case 0x41:
+				SerialUSB.println("Error on dataflash CRC");
+				break;
+			case 0x42:
+				SerialUSB.println("Fluxgate running high freq");
+				break;
+			case 0x43:
+				SerialUSB.println("Fluxgate not oscillating");
+				break;
+			case 0x44:
+				SerialUSB.println("CAB entered failsafe mode");
+				break;
+			case 0x46:
+				SerialUSB.println("Signal not avail");
+				break;
+			case 0x47:
+				SerialUSB.println("Bridge voltage protection");
+				break;
+			default:
+				SerialUSB.println("Something bad happened");
+				break;
+			}
+		}
+		else
+		{
+			int64_t tempCurr;
+			tempCurr = frame->data.byte[0] << 24;
+			tempCurr += frame->data.byte[1] << 16;
+			tempCurr += frame->data.byte[2] << 8;
+			tempCurr += frame->data.byte[3];
+			int32_t currentReading = (int32_t)(tempCurr - 0x80000000);
+			float currentValue = currentReading / 1000.0f;
+			SerialUSB.print("CAB300 - Current: ");
+			SerialUSB.println(currentValue);
+		}
+	}
 }
 
 void setup()
