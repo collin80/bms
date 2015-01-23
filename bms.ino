@@ -315,6 +315,6 @@ void loop()
 {
 	if (SerialUSB.available()) 
 	{
-		console.rcvCharacter((uint8_t)SerialUSB.read);
+		console.rcvCharacter((uint8_t)SerialUSB.read());
 	}
 }

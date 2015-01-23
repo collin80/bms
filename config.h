@@ -26,6 +26,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <Arduino.h>
 
+#ifndef CONFIG_H_
+#define CONFIG_H_
+
 #define CFG_BUILD_NUM	0x10
 
 #define VIN_ADDR		0x48 // ADS1110-A0 the device address is 0x48  Voltage input
@@ -70,7 +73,7 @@ struct EEPROMSettings {
 
 	int32_t cab300Address; //either 0x3C0 or 0x3C2 so far. Set to 0 if there isn't one installed in the car.
 
-	int16_t balanceThreshold; //how close in value the min and max sections can be without faulting
+	uint16_t balanceThreshold; //how close in value the min and max sections can be without faulting - In millivolts
 	
 	//these two turn the ADC readings into volts/degrees.
 	//Apparently first gen hardware actually has non-linearity for temp so handle specially.
@@ -82,3 +85,5 @@ struct EEPROMSettings {
 
 	uint16_t valid; //stores a validity token to make sure EEPROM is not corrupt
 };
+
+#endif

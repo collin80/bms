@@ -51,6 +51,8 @@ void SerialConsole::printMenu() {
 	SerialUSB.println();
 	SerialUSB.println("Short Commands:");
 	SerialUSB.println("h = help (displays this message)");
+	SerialUSB.println("V = Calibrate voltage multipliers");
+	SerialUSB.println("T = Calibrate temperature multipliers");
 	SerialUSB.println("R = reset to factory defaults");
 	SerialUSB.println();
 	SerialUSB.println("Config Commands (enter command=newvalue). Current values shown in parenthesis:");
@@ -61,6 +63,24 @@ void SerialConsole::printMenu() {
 
 	Logger::console("CANEN=%i - Enable/Disable CAN (0 = Disable, 1 = Enable)", settings.CAN_Enabled);
 	Logger::console("CANSPEED=%i - Set speed of CAN in baud (125000, 250000, etc)", settings.CANSpeed);
+	SerialUSB.println();
+
+	Logger::console("CABADDR=%i - Set address of CAB300 sensor", settings.cab300Address);
+	SerialUSB.println();
+
+	Logger::console("BALTHR=%i - Set balancing threshold (millivolts)", settings.balanceThreshold);
+	SerialUSB.println();
+
+	Logger::console("VMULT1=%f - Set voltage multiplier for bank 1", settings.vMultiplier[0]);
+	Logger::console("VMULT2=%f - Set voltage multiplier for bank 2", settings.vMultiplier[1]);
+	Logger::console("VMULT3=%f - Set voltage multiplier for bank 3", settings.vMultiplier[2]);
+	Logger::console("VMULT4=%f - Set voltage multiplier for bank 4", settings.vMultiplier[3]);
+	SerialUSB.println();
+
+	Logger::console("TMULT1=%f - Set temperature multiplier for bank 1", settings.tMultiplier[0]);
+	Logger::console("TMULT2=%f - Set temperature multiplier for bank 2", settings.tMultiplier[1]);
+	Logger::console("TMULT3=%f - Set temperature multiplier for bank 3", settings.tMultiplier[2]);
+	Logger::console("TMULT4=%f - Set temperature multiplier for bank 4", settings.tMultiplier[3]);
 	SerialUSB.println();
 }
 
@@ -97,6 +117,7 @@ void SerialConsole::handleConsoleCmd() {
 void SerialConsole::handleConfigCmd() {
 	int i;
 	int newValue;
+	float newValFloat;
 	char *newString;
 	bool writeEEPROM = false;
 
@@ -121,6 +142,7 @@ void SerialConsole::handleConfigCmd() {
 
 	// strtol() is able to parse also hex values (e.g. a string "0xCAFE"), useful for enable/disable by device id
 	newValue = strtol((char *) (cmdBuffer + i), NULL, 0); //try to turn the string into a number
+	newValFloat = strtof((char *) (cmdBuffer + i), NULL); //try to turn the string into a FP number
 	newString = (char *)(cmdBuffer + i); //leave it as a string
 
 	cmdString.toUpperCase();
@@ -142,6 +164,54 @@ void SerialConsole::handleConfigCmd() {
 			writeEEPROM = true;
 		}
 		else Logger::console("Invalid baud rate! Enter a value 1 - 1000000");
+	} else if (cmdString == String("CABADDR")) {
+		if (newValue > 0 && newValue <= 0x7FF) 
+		{
+			Logger::console("Setting CAB Address to %i", newValue);
+			settings.cab300Address = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid address! Enter a value 0 - 7FF");
+	} else if (cmdString == String("BALTHR")) {
+		if (newValue > 0) 
+		{
+			Logger::console("Setting balancing threshold to %i", newValue);
+			settings.balanceThreshold = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid threshold! It has to be positive!");
+	} else if (cmdString == String("VMULT1")) {
+		Logger::console("Setting voltage multiplier bank 1 to %f", newValFloat);
+		settings.vMultiplier[0] = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("VMULT2")) {
+		Logger::console("Setting voltage multiplier bank 2 to %f", newValFloat);
+		settings.vMultiplier[1] = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("VMULT3")) {
+		Logger::console("Setting voltage multiplier bank 3 to %f", newValFloat);
+		settings.vMultiplier[2] = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("VMULT4")) {
+		Logger::console("Setting voltage multiplier bank 4 to %f", newValFloat);
+		settings.vMultiplier[3] = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT1")) {
+		Logger::console("Setting temperature multiplier bank 1 to %f", newValFloat);
+		settings.tMultiplier[0] = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT2")) {
+		Logger::console("Setting temperature multiplier bank 2 to %f", newValFloat);
+		settings.tMultiplier[1] = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT3")) {
+		Logger::console("Setting temperature multiplier bank 3 to %f", newValFloat);
+		settings.tMultiplier[2] = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT4")) {
+		Logger::console("Setting temperature multiplier bank 4 to %f", newValFloat);
+		settings.tMultiplier[3] = newValFloat;
+		writeEEPROM = true;
 	} else if (cmdString == String("LOGLEVEL")) {
 		switch (newValue) {
 		case 0:
@@ -194,6 +264,13 @@ void SerialConsole::handleShortCmd() {
 		EEPROM.write(0, settings);
 		Logger::console("Power cycle to reset to factory defaults");
 		break;
+	case 'V':
+		//voltage calibration
+		break;
+	case 'T':
+		//tempurature
+		break;
+
 	}
 }
 
