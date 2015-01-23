@@ -35,21 +35,11 @@ This is the golden combo.
 #include <DueTimer.h>
 #include "config.h"
 #include "SerialConsole.h"
-
-
-//There are three full readings per second so 32 entries is about 10 seconds worth of data
-//Thus, the average of all these readings is a 10 second average of the pack performance
-int16_t vReading[4][32];
-int16_t tReading[4][32];
-byte vReadingPos, tReadingPos;
-
-const uint8_t VBat[4][2] = {
-								{SWITCH_VBAT1_H, SWITCH_VBAT2_L},{SWITCH_VBAT2_H, SWITCH_VBAT3_L}, 
-								{SWITCH_VBAT3_H, SWITCH_VBAT4_L},{SWITCH_VBAT4_H,SWITCH_VBATRTN}
-						   };
+#include "adc.h"
 
 EEPROMSettings settings;
 SerialConsole	console;
+ADCClass* adc;
 
 /*Load settings from EEPROM. Fill out settings if not initialized yet*/
 void loadEEPROM()
@@ -78,42 +68,6 @@ void loadEEPROM()
 	}
 }
 
-void setAllVOff()
-{
-  digitalWriteNonDue( SWITCH_VBAT1_H, LOW );
-  digitalWriteNonDue( SWITCH_VBAT2_L, LOW );
-  digitalWriteNonDue( SWITCH_VBAT2_H, LOW );
-  digitalWriteNonDue( SWITCH_VBAT3_L, LOW );
-  digitalWriteNonDue( SWITCH_VBAT3_H, LOW );
-  digitalWriteNonDue( SWITCH_VBAT4_L, LOW );
-  digitalWriteNonDue( SWITCH_VBAT4_H, LOW );
-  digitalWriteNonDue( SWITCH_VBATRTN, LOW );
-}
-
-void setVEnable(uint8_t which)
-{
-	if (which > 3) return;
-	setAllVOff();
-	digitalWriteNonDue(VBat[which][0], HIGH);
-	digitalWriteNonDue(VBat[which][1], HIGH);
-}
-
-void setAllThermOff()
-{
-  digitalWriteNonDue(SWITCH_THERM1, LOW );
-  digitalWriteNonDue(SWITCH_THERM2, LOW);
-  digitalWriteNonDue(SWITCH_THERM3, LOW );
-  digitalWriteNonDue(SWITCH_THERM4, LOW );
-}
-
-void setThermActive(uint8_t which)
-{
-	if (which < SWITCH_THERM1) return;
-	if (which > SWITCH_THERM4) return;
-	setAllThermOff();
-	digitalWriteNonDue(which, HIGH );
-}
-
 void canbusTermEnable()
 {
   digitalWriteNonDue( CAN_TERM_1, HIGH );  
@@ -127,50 +81,9 @@ void canbusTermDisable()
   digitalWriteNonDue( CAN_TERM_2, LOW );
 }
 
-//ask for a reading to start. Currently we support 15 reads per second so one must wait
-// at least 1000 / 15 = 67ms before trying to get the answer
-void adsStartConversion(uint8_t addr)
-{
-  Wire.beginTransmission(addr); 
-  Wire.write(ADS_CONFIG);
-  Wire.endTransmission();
-}
-
-//returns true if data was waiting or false if it was not
-bool adsGetData(byte addr, int16_t &value)
-{
-  byte status;
-
-  //we ask to read the ADC value
-  Wire.requestFrom(addr, 3); 
-  value = Wire.read(); // first received byte is high byte of conversion data
-  value <<= 8;
-  value += Wire.read(); // second received byte is low byte of conversion data
-  status = Wire.read(); // third received byte is the status register  
-  if (status & ADS_NOTREADY) return false;
-  return true;
-}
-
 void setupHardware()
 {
 	loadEEPROM();
-  //Battery voltage inputs
-  pinModeNonDue(SWITCH_VBAT1_H, OUTPUT );
-  pinModeNonDue(SWITCH_VBAT2_L, OUTPUT );
-  pinModeNonDue(SWITCH_VBAT2_H, OUTPUT );
-  pinModeNonDue(SWITCH_VBAT3_L, OUTPUT );
-  pinModeNonDue(SWITCH_VBAT3_H, OUTPUT );
-  pinModeNonDue(SWITCH_VBAT4_L, OUTPUT );
-  pinModeNonDue(SWITCH_VBAT4_H, OUTPUT );
-  pinModeNonDue(SWITCH_VBATRTN, OUTPUT );
-  setAllVOff();
-
-  //Thermistor inputs
-  pinModeNonDue(SWITCH_THERM1, OUTPUT );
-  pinModeNonDue(SWITCH_THERM2, OUTPUT );
-  pinModeNonDue(SWITCH_THERM3, OUTPUT );
-  pinModeNonDue(SWITCH_THERM4, OUTPUT );
-  setAllThermOff();
 
   pinModeNonDue(CAN_TERM_1, OUTPUT );  
   pinModeNonDue(CAN_TERM_2, OUTPUT );
@@ -182,72 +95,6 @@ void setupHardware()
 	if (settings.cab300Address > 0) Can0.watchFor(settings.cab300Address); //allow through only this address for now
   }
   Can0.setGeneralCallback(canbusRX);
-}
-
-//periodic tick that handles reading ADCs and doing other stuff that happens on a schedule.
-//There are four voltage readings and four thermistor readings and they are on separate
-//ads chips so each can be read every cycle which means it takes exactly 320ms to read the whole pack
-//Or, the pack is fully characterized three times per second. Not too shabby!
-void timerTick()
-{
-	static byte vNum, tNum; //which voltage and thermistor reading we're on
-
-	int16_t readValue;
-	
-	//read the values from the previous cycle
-	//if there is a problem we won't update the values stored
-	if (adsGetData(VIN_ADDR, readValue)) 
-	{
-		vReading[vNum][vReadingPos] = readValue;
-		vReadingPos = (vReadingPos + 1) & 31;
-	}
-
-	if (adsGetData(THERM_ADDR, readValue)) 
-	{
-		tReading[vNum][tReadingPos] = readValue;
-		tReadingPos = (tReadingPos + 1) & 31;
-	}
-
-	//Set up for the next set of readings
-	setVEnable(vNum++);
-	adsStartConversion(VIN_ADDR);
-	setThermActive(SWITCH_THERM1 + tNum++);
-	adsStartConversion(THERM_ADDR);
-	
-	//constrain these back to valid range 0-3
-	vNum &= 3;
-	tNum &= 3;
-
-	int32_t vAccum[4], tAccum[4];
-	int16_t vHigh = -10000, vLow = 30000;
-
-	for (int y = 0; y < 4; y++)
-	{
-		vAccum[y] = 0;
-		tAccum[y] = 0;
-		for (int x = 0; x < 32; x++)
-		{
-			vAccum[y] += vReading[y][x];
-			tAccum[y] += tReading[y][x];
-		}
-		//now get averages.
-		vAccum[y] /= 32;
-		tAccum[y] /= 32;
-		if (vAccum[y] > vHigh) vHigh = vAccum[y];
-		if (vAccum[y] < vLow) vLow = vAccum[y];
-	}
-
-	//Now, if the difference between vLow and vHigh is too high then there is a serious pack balancing problem
-	//and we should let someone know
-	if (vHigh - vLow > settings.balanceThreshold)
-	{
-	}
-
-	SerialUSB.print(vAccum[0]);
-	SerialUSB.print(vAccum[1]);
-	SerialUSB.print(vAccum[2]);
-	SerialUSB.print(vAccum[3]);
-	SerialUSB.println();
 }
 
 void canbusRX(CAN_FRAME *frame)
@@ -305,8 +152,8 @@ void setup()
 
   setupHardware();
 
-  Timer3.attachInterrupt(timerTick);
-  Timer3.start(80000); //trigger every 80ms
+  adc = ADCClass::getInstance();
+  adc->setup();
 
   console.printMenu();
 }

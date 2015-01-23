@@ -40,6 +40,17 @@ void SerialConsole::init() {
 	state = STATE_ROOT_MENU;      
 }
 
+//For each of the quadrants get the reading and show it to the user. Ask them to input
+//their reading and this will correct any issues.
+void vCalibrate()
+{
+	delay(1000); //just be sure 
+}
+
+void tCalibrate()
+{
+}
+
 void SerialConsole::printMenu() {
 	char buff[80];
 	//Show build # here as well in case people are using the native port and don't get to see the start up messages
@@ -266,11 +277,14 @@ void SerialConsole::handleShortCmd() {
 		break;
 	case 'V':
 		//voltage calibration
+		vCalibrate();
 		break;
 	case 'T':
 		//tempurature
+		tCalibrate();
 		break;
 
 	}
 }
+
 
