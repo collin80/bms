@@ -59,7 +59,7 @@ void vCalibrate()
 		SerialUSB.println(oldV);
 		String input = SerialUSB.readString();
 		SerialUSB.print("Enter measured voltage: ");
-		newV = atof(input.c_str);
+		newV = atof((char *)input.c_str());
 		scale = newV / oldV;
 		settings.vMultiplier[subpack - 1] *= scale;
 		SerialUSB.println();
@@ -84,7 +84,7 @@ void tCalibrate()
 		SerialUSB.println(oldT);
 		String input = SerialUSB.readString();
 		SerialUSB.print("Enter measured temperature: ");
-		newT = atof(input.c_str);
+		newT = atof((char *)input.c_str());
 		scale = newT / oldT;
 		settings.tMultiplier[subpack - 1] *= scale;
 		SerialUSB.println();
