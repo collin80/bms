@@ -35,7 +35,7 @@ This is the golden combo.
 #include <DueTimer.h>
 #include "config.h"
 #include "SerialConsole.h"
-#include "adc.h"
+#include "i2c_adc.h"
 
 EEPROMSettings settings;
 SerialConsole	console;

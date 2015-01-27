@@ -28,7 +28,10 @@
 
 #include "SerialConsole.h"
 
+//doin' it old school here... should be doing this object oriented but instead this is 
+//the cheap and dirty approach
 extern EEPROMSettings settings;
+extern ADCClass* adc;
 
 SerialConsole::SerialConsole() {
 	init();
@@ -45,6 +48,18 @@ void SerialConsole::init() {
 void vCalibrate()
 {
 	delay(1000); //just be sure 
+
+	for (int subpack = 1; subpack < 5; subpack++)
+	{
+		float voltage = adc->getVoltage(subpack - 1);
+		SerialUSB.print("Reported voltage of subpack ");
+		SerialUSB.print(subpack);
+		SerialUSB.print(": ");
+		SerialUSB.println(voltage);
+		SerialUSB.
+	}
+
+
 }
 
 void tCalibrate()

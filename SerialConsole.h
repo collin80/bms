@@ -32,6 +32,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "due_can.h"
 #include "due_wire.h"
 #include "Wire_EEPROM.h"
+#include "i2c_adc.h"
 
 class SerialConsole {
 public:

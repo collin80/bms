@@ -24,7 +24,7 @@
 
  */
 
-#include "adc.h"
+#include "i2c_adc.h"
 
 const uint8_t VBat[4][2] = {
 								{SWITCH_VBAT1_H, SWITCH_VBAT2_L},{SWITCH_VBAT2_H, SWITCH_VBAT3_L}, 
