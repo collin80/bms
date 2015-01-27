@@ -48,22 +48,50 @@ void SerialConsole::init() {
 void vCalibrate()
 {
 	delay(1000); //just be sure 
+	float oldV, newV, scale;
 
 	for (int subpack = 1; subpack < 5; subpack++)
 	{
-		float voltage = adc->getVoltage(subpack - 1);
+		oldV = adc->getVoltage(subpack - 1);
 		SerialUSB.print("Reported voltage of subpack ");
 		SerialUSB.print(subpack);
 		SerialUSB.print(": ");
-		SerialUSB.println(voltage);
-		SerialUSB.
+		SerialUSB.println(oldV);
+		String input = SerialUSB.readString();
+		SerialUSB.print("Enter measured voltage: ");
+		newV = atof(input.c_str);
+		scale = newV / oldV;
+		settings.vMultiplier[subpack - 1] *= scale;
+		SerialUSB.println();
+		delay(1000); //just be sure 
 	}
-
-
+	Serial.println("Voltages have been calibrated and calibration saved to EEPROM");
+	EEPROM.write(0, settings);
 }
 
 void tCalibrate()
 {
+	delay(1000); //just be sure 
+	
+	float oldT, newT, scale;
+
+	for (int subpack = 1; subpack < 5; subpack++)
+	{
+		oldT = adc->getTemperature(subpack - 1);
+		SerialUSB.print("Reported temperature of subpack ");
+		SerialUSB.print(subpack);
+		SerialUSB.print(": ");
+		SerialUSB.println(oldT);
+		String input = SerialUSB.readString();
+		SerialUSB.print("Enter measured temperature: ");
+		newT = atof(input.c_str);
+		scale = newT / oldT;
+		settings.tMultiplier[subpack - 1] *= scale;
+		SerialUSB.println();
+		delay(1000); //just be sure 
+	}
+	Serial.println("Temperatures have been calibrated and calibration saved to EEPROM");
+	EEPROM.write(0, settings);
 }
 
 void SerialConsole::printMenu() {
