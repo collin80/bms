@@ -45,7 +45,7 @@ ADCClass* adc;
 void loadEEPROM()
 {
 	EEPROM.read(0,settings);
-	if (settings.valid != 0xDE || settings.version != 11)
+	if (settings.valid != 0xDE || settings.version != CFG_EEPROM_VER)
 	{
 		settings.balanceThreshold = 0x200;
 		settings.cab300Address = 0x3C0;
@@ -60,14 +60,13 @@ void loadEEPROM()
 			settings.tMultiplier[x].C = 17.433f;
 			settings.tMultiplier[x].D = 22.679;
 		}
-		//voltage multipler calculated based on 100k battery resistance and 2k resistor on board.
-		//The actual multiplier will be a little bit off from this but this value is a good start.
-		settings.vMultiplier[0] = 0.001593752f;
-		settings.vMultiplier[1] = 0.001593752f;
-		settings.vMultiplier[2] = 0.001593752f;
-		settings.vMultiplier[3] = 0.001593752f;
+		//values here were found by trial and careful measuring. Your milleage may vary.
+		settings.vMultiplier[0] = 0.01285f;
+		settings.vMultiplier[1] = 0.01285f;
+		settings.vMultiplier[2] = 0.01285f;
+		settings.vMultiplier[3] = 0.01285f;
 		settings.valid = 0xDE;
-		settings.version = 10;		
+		settings.version = CFG_EEPROM_VER;		
 		EEPROM.write(0, settings);
 	}
 }
@@ -169,4 +168,5 @@ void loop()
 	{
 		console.rcvCharacter((uint8_t)SerialUSB.read());
 	}
+	adc->loop();
 }

@@ -105,28 +105,28 @@ void SerialConsole::printMenu() {
 	Logger::console("VMULT4=%f - Set voltage multiplier for bank 4", settings.vMultiplier[3]);
 	SerialUSB.println();
 	
-	Logger::console("TMULT1A=%f,%f,%f,%f - Set temperature coefficient A for bank 1", settings.tMultiplier[0].A);
-	Logger::console("TMULT1B=%f,%f,%f,%f - Set temperature coefficient B for bank 1", settings.tMultiplier[0].B);
-	Logger::console("TMULT1C=%f,%f,%f,%f - Set temperature coefficient C for bank 1", settings.tMultiplier[0].C);
-	Logger::console("TMULT1D=%f,%f,%f,%f - Set temperature conversion factor for bank 1", settings.tMultiplier[0].adcToVolts);
+	Logger::console("TMULT1A=%f - Set temperature coefficient A for bank 1", settings.tMultiplier[0].A);
+	Logger::console("TMULT1B=%f - Set temperature coefficient B for bank 1", settings.tMultiplier[0].B);
+	Logger::console("TMULT1C=%f - Set temperature coefficient C for bank 1", settings.tMultiplier[0].C);
+	Logger::console("TMULT1D=%f - Set temperature conversion factor for bank 1", settings.tMultiplier[0].adcToVolts);
 	SerialUSB.println();
 
-	Logger::console("TMULT2A=%f,%f,%f,%f - Set temperature coefficient A for bank 2", settings.tMultiplier[1].A);
-	Logger::console("TMULT2B=%f,%f,%f,%f - Set temperature coefficient B for bank 2", settings.tMultiplier[1].B);
-	Logger::console("TMULT2C=%f,%f,%f,%f - Set temperature coefficient C for bank 2", settings.tMultiplier[1].C);
-	Logger::console("TMULT2D=%f,%f,%f,%f - Set temperature conversion factor for bank 2", settings.tMultiplier[1].adcToVolts);
+	Logger::console("TMULT2A=%f - Set temperature coefficient A for bank 2", settings.tMultiplier[1].A);
+	Logger::console("TMULT2B=%f - Set temperature coefficient B for bank 2", settings.tMultiplier[1].B);
+	Logger::console("TMULT2C=%f - Set temperature coefficient C for bank 2", settings.tMultiplier[1].C);
+	Logger::console("TMULT2D=%f - Set temperature conversion factor for bank 2", settings.tMultiplier[1].adcToVolts);
 	SerialUSB.println();
 
-	Logger::console("TMULT3A=%f,%f,%f,%f - Set temperature coefficient A for bank 3", settings.tMultiplier[2].A);
-	Logger::console("TMULT3B=%f,%f,%f,%f - Set temperature coefficient B for bank 3", settings.tMultiplier[2].B);
-	Logger::console("TMULT3C=%f,%f,%f,%f - Set temperature coefficient C for bank 3", settings.tMultiplier[2].C);
-	Logger::console("TMULT3D=%f,%f,%f,%f - Set temperature conversion factor for bank 3", settings.tMultiplier[2].adcToVolts);
+	Logger::console("TMULT3A=%f - Set temperature coefficient A for bank 3", settings.tMultiplier[2].A);
+	Logger::console("TMULT3B=%f - Set temperature coefficient B for bank 3", settings.tMultiplier[2].B);
+	Logger::console("TMULT3C=%f - Set temperature coefficient C for bank 3", settings.tMultiplier[2].C);
+	Logger::console("TMULT3D=%f - Set temperature conversion factor for bank 3", settings.tMultiplier[2].adcToVolts);
 	SerialUSB.println();
 
-	Logger::console("TMULT4A=%f,%f,%f,%f - Set temperature coefficient A for bank 4", settings.tMultiplier[3].A);
-	Logger::console("TMULT4B=%f,%f,%f,%f - Set temperature coefficient B for bank 4", settings.tMultiplier[3].B);
-	Logger::console("TMULT4C=%f,%f,%f,%f - Set temperature coefficient C for bank 4", settings.tMultiplier[3].C);
-	Logger::console("TMULT4D=%f,%f,%f,%f - Set temperature conversion factor for bank 4", settings.tMultiplier[3].adcToVolts);
+	Logger::console("TMULT4A=%f - Set temperature coefficient A for bank 4", settings.tMultiplier[3].A);
+	Logger::console("TMULT4B=%f - Set temperature coefficient B for bank 4", settings.tMultiplier[3].B);
+	Logger::console("TMULT4C=%f - Set temperature coefficient C for bank 4", settings.tMultiplier[3].C);
+	Logger::console("TMULT4D=%f - Set temperature conversion factor for bank 4", settings.tMultiplier[3].adcToVolts);
 	SerialUSB.println();
 
 }
@@ -230,7 +230,7 @@ void SerialConsole::handleConfigCmd() {
 	} else if (cmdString == String("VMULT1")) {
 		Logger::console("Setting voltage multiplier bank 1 to %f", newValFloat);
 		settings.vMultiplier[0] = newValFloat;
-		writeEEPROM = true;
+		//writeEEPROM = true;
 	} else if (cmdString == String("VMULT2")) {
 		Logger::console("Setting voltage multiplier bank 2 to %f", newValFloat);
 		settings.vMultiplier[1] = newValFloat;

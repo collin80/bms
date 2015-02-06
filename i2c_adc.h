@@ -35,6 +35,10 @@
 #ifndef ADCCLASS_H_
 #define ADCCLASS_H_
 
+#define SAMPLES	8 //how many samples to use while smoothing
+
+extern volatile bool doADC;
+
 class ADCClass 
 {
 public:
@@ -45,16 +49,17 @@ public:
 	int getRawT(int which);
 	float getVoltage(int which);
 	float getTemperature(int which);
+	void loop();
 
 private:
 	//There are three full readings per second so 32 entries is about 10 seconds worth of data
 	//Thus, the average of all these readings is a 10 second average of the pack performance
-	int16_t vReading[4][32];
-	int16_t tReading[4][32];
+	int16_t vReading[4][SAMPLES];
+	int16_t tReading[4][SAMPLES];
 	int vAccum[4];
 	int tAccum[4];
 	byte vReadingPos, tReadingPos;
-	static ADCClass *instance;
+	static ADCClass *instance;	
 
 	void setAllVOff();
 	void setVEnable(uint8_t which);

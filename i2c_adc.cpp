@@ -34,10 +34,11 @@ const uint8_t VBat[4][2] = {
 extern EEPROMSettings settings;
 
 ADCClass* ADCClass::instance = NULL;
+volatile bool doADC = false;
 
 void tickBounce()
 {
-	ADCClass::getInstance()->handleTick();
+	doADC = true;	
 }
 
 ADCClass* ADCClass::getInstance()
@@ -151,25 +152,25 @@ void ADCClass::handleTick()
 	if (adsGetData(VIN_ADDR, readValue)) 
 	{
 		vReading[vNum][vReadingPos] = readValue;
-		vReadingPos = (vReadingPos + 1) & 31;
+		vReadingPos = (vReadingPos + 1) & (SAMPLES-1);
 		vAccum[vNum] = 0;
-		for (x = 0; x < 32; x++)
+		for (x = 0; x < SAMPLES; x++)
 		{
 			vAccum[vNum] += vReading[vNum][x];
 		}
-		vAccum[vNum] /= 32;
+		vAccum[vNum] /= SAMPLES;
 	}
 
 	if (adsGetData(THERM_ADDR, readValue)) 
 	{
 		tReading[tNum][tReadingPos] = readValue;	
-		tReadingPos = (tReadingPos + 1) & 31;
+		tReadingPos = (tReadingPos + 1) & (SAMPLES-1);
 		tAccum[tNum] = 0;
-		for (x = 0; x < 32; x++)
+		for (x = 0; x < SAMPLES; x++)
 		{
 			tAccum[tNum] += tReading[tNum][x];
 		}
-		vAccum[tNum] /= 32;
+		tAccum[tNum] /= SAMPLES;
 
 	}
 
@@ -196,10 +197,11 @@ void ADCClass::handleTick()
 		//and we should let someone know
 		if (vHigh - vLow > settings.balanceThreshold)
 		{
+			Logger::debug("Pack voltage imbalance!");
 		}
 	}
 
-	Logger::debug("V1: %i V2: %i V3: %i V4: %i", vAccum[0], vAccum[1], vAccum[2], vAccum[3]);
+	Logger::debug("V1: %f V2: %f V3: %f V4: %f", getVoltage(0), getVoltage(1), getVoltage(2), getVoltage(3));
 }
 
 int ADCClass::getRawV(int which)
@@ -216,11 +218,14 @@ int ADCClass::getRawT(int which)
 	return tAccum[which];
 }
 
+//note that it reverses the order of inputs. For some reason it seems like everything is backwards but I'm loathe to
+//switch up the switching order because it seems to work. But, maybe change the switching pins at some point
+//or figure out why things seem backward.
 float ADCClass::getVoltage(int which)
 {
 	if (which < 0) return 0.0f;
 	if (which > 3) return 0.0f;
-	return (vAccum[which] * settings.vMultiplier[which]);
+	return (vAccum[3 - which] * settings.vMultiplier[3 - which]);
 }
 
 float ADCClass::getTemperature(int which)
@@ -239,5 +244,12 @@ float ADCClass::getTemperature(int which)
 	return (y);
 }
 
-
+void ADCClass::loop()
+{
+	if (doADC)
+	{
+		ADCClass::getInstance()->handleTick();
+		doADC = false;
+	}
+}
 

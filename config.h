@@ -30,6 +30,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define CONFIG_H_
 
 #define CFG_BUILD_NUM	0x10
+#define CFG_EEPROM_VER	12
 
 #define VIN_ADDR		0x48 // ADS1110-A0 the device address is 0x48  Voltage input
 #define THERM_ADDR		0x4A // ADS1110-A2 the device address is 0x4A  Thermistor input
