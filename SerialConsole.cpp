@@ -104,13 +104,31 @@ void SerialConsole::printMenu() {
 	Logger::console("VMULT3=%f - Set voltage multiplier for bank 3", settings.vMultiplier[2]);
 	Logger::console("VMULT4=%f - Set voltage multiplier for bank 4", settings.vMultiplier[3]);
 	SerialUSB.println();
-
 	
-	Logger::console("TMULT1=%f,%f,%f,%f - Set temperature coefficients for bank 1", settings.tMultiplier[0].A,settings.tMultiplier[0].B,settings.tMultiplier[0].C,settings.tMultiplier[0].adcToVolts);
-	Logger::console("TMULT2=%f,%f,%f,%f - Set temperature coefficients for bank 2", settings.tMultiplier[1].A,settings.tMultiplier[1].B,settings.tMultiplier[1].C,settings.tMultiplier[1].adcToVolts);
-	Logger::console("TMULT3=%f,%f,%f,%f - Set temperature coefficients for bank 3", settings.tMultiplier[2].A,settings.tMultiplier[2].B,settings.tMultiplier[2].C,settings.tMultiplier[2].adcToVolts);
-	Logger::console("TMULT4=%f,%f,%f,%f - Set temperature coefficients for bank 4", settings.tMultiplier[3].A,settings.tMultiplier[3].B,settings.tMultiplier[3].C,settings.tMultiplier[3].adcToVolts);
+	Logger::console("TMULT1A=%f,%f,%f,%f - Set temperature coefficient A for bank 1", settings.tMultiplier[0].A);
+	Logger::console("TMULT1B=%f,%f,%f,%f - Set temperature coefficient B for bank 1", settings.tMultiplier[0].B);
+	Logger::console("TMULT1C=%f,%f,%f,%f - Set temperature coefficient C for bank 1", settings.tMultiplier[0].C);
+	Logger::console("TMULT1D=%f,%f,%f,%f - Set temperature conversion factor for bank 1", settings.tMultiplier[0].adcToVolts);
 	SerialUSB.println();
+
+	Logger::console("TMULT2A=%f,%f,%f,%f - Set temperature coefficient A for bank 2", settings.tMultiplier[1].A);
+	Logger::console("TMULT2B=%f,%f,%f,%f - Set temperature coefficient B for bank 2", settings.tMultiplier[1].B);
+	Logger::console("TMULT2C=%f,%f,%f,%f - Set temperature coefficient C for bank 2", settings.tMultiplier[1].C);
+	Logger::console("TMULT2D=%f,%f,%f,%f - Set temperature conversion factor for bank 2", settings.tMultiplier[1].adcToVolts);
+	SerialUSB.println();
+
+	Logger::console("TMULT3A=%f,%f,%f,%f - Set temperature coefficient A for bank 3", settings.tMultiplier[2].A);
+	Logger::console("TMULT3B=%f,%f,%f,%f - Set temperature coefficient B for bank 3", settings.tMultiplier[2].B);
+	Logger::console("TMULT3C=%f,%f,%f,%f - Set temperature coefficient C for bank 3", settings.tMultiplier[2].C);
+	Logger::console("TMULT3D=%f,%f,%f,%f - Set temperature conversion factor for bank 3", settings.tMultiplier[2].adcToVolts);
+	SerialUSB.println();
+
+	Logger::console("TMULT4A=%f,%f,%f,%f - Set temperature coefficient A for bank 4", settings.tMultiplier[3].A);
+	Logger::console("TMULT4B=%f,%f,%f,%f - Set temperature coefficient B for bank 4", settings.tMultiplier[3].B);
+	Logger::console("TMULT4C=%f,%f,%f,%f - Set temperature coefficient C for bank 4", settings.tMultiplier[3].C);
+	Logger::console("TMULT4D=%f,%f,%f,%f - Set temperature conversion factor for bank 4", settings.tMultiplier[3].adcToVolts);
+	SerialUSB.println();
+
 }
 
 /*	There is a help menu (press H or h or ?)
@@ -225,21 +243,69 @@ void SerialConsole::handleConfigCmd() {
 		Logger::console("Setting voltage multiplier bank 4 to %f", newValFloat);
 		settings.vMultiplier[3] = newValFloat;
 		writeEEPROM = true;
-	} else if (cmdString == String("TMULT1")) {
-		Logger::console("Setting temperature multiplier bank 1 to %f", newValFloat);
-		//settings.tMultiplier[0] = newValFloat;
+	} else if (cmdString == String("TMULT1A")) {
+		Logger::console("Setting temperature coefficient A bank 1 to %f", newValFloat);
+		settings.tMultiplier[0].A = newValFloat;
 		writeEEPROM = true;
-	} else if (cmdString == String("TMULT2")) {
-		Logger::console("Setting temperature multiplier bank 2 to %f", newValFloat);
-		//settings.tMultiplier[1] = newValFloat;
+	} else if (cmdString == String("TMULT2A")) {
+		Logger::console("Setting temperature coefficient A bank 2 to %f", newValFloat);
+		settings.tMultiplier[1].A = newValFloat;
 		writeEEPROM = true;
-	} else if (cmdString == String("TMULT3")) {
-		Logger::console("Setting temperature multiplier bank 3 to %f", newValFloat);
-		//settings.tMultiplier[2] = newValFloat;
+	} else if (cmdString == String("TMULT3A")) {
+		Logger::console("Setting temperature coefficient A bank 3 to %f", newValFloat);
+		settings.tMultiplier[2].A = newValFloat;
 		writeEEPROM = true;
-	} else if (cmdString == String("TMULT4")) {
-		Logger::console("Setting temperature multiplier bank 4 to %f", newValFloat);
-		//settings.tMultiplier[3] = newValFloat;
+	} else if (cmdString == String("TMULT4A")) {
+		Logger::console("Setting temperature coefficient A bank 4 to %f", newValFloat);
+		settings.tMultiplier[3].A = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT1B")) {
+		Logger::console("Setting temperature coefficient B bank 1 to %f", newValFloat);
+		settings.tMultiplier[0].B = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT2B")) {
+		Logger::console("Setting temperature coefficient B bank 2 to %f", newValFloat);
+		settings.tMultiplier[1].B = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT3B")) {
+		Logger::console("Setting temperature coefficient B bank 3 to %f", newValFloat);
+		settings.tMultiplier[2].B = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT4B")) {
+		Logger::console("Setting temperature coefficient B bank 4 to %f", newValFloat);
+		settings.tMultiplier[3].B = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT1C")) {
+		Logger::console("Setting temperature coefficient C bank 1 to %f", newValFloat);
+		settings.tMultiplier[0].C = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT2C")) {
+		Logger::console("Setting temperature coefficient C bank 2 to %f", newValFloat);
+		settings.tMultiplier[1].C = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT3C")) {
+		Logger::console("Setting temperature coefficient C bank 3 to %f", newValFloat);
+		settings.tMultiplier[2].C = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT4C")) {
+		Logger::console("Setting temperature coefficient C bank 4 to %f", newValFloat);
+		settings.tMultiplier[3].C = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT1D")) {
+		Logger::console("Setting temperature conversion factor bank 1 to %f", newValFloat);
+		settings.tMultiplier[0].D = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT2D")) {
+		Logger::console("Setting temperature conversion factor bank 2 to %f", newValFloat);
+		settings.tMultiplier[1].D = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT3D")) {
+		Logger::console("Setting temperature conversion factor bank 3 to %f", newValFloat);
+		settings.tMultiplier[2].D = newValFloat;
+		writeEEPROM = true;
+	} else if (cmdString == String("TMULT4D")) {
+		Logger::console("Setting temperature conversion factor bank 4 to %f", newValFloat);
+		settings.tMultiplier[3].D = newValFloat;
 		writeEEPROM = true;
 	} else if (cmdString == String("LOGLEVEL")) {
 		switch (newValue) {
