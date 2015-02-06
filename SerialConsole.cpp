@@ -45,7 +45,7 @@ void SerialConsole::init() {
 
 //For each of the quadrants get the reading and show it to the user. Ask them to input
 //their reading and this will correct any issues.
-void vCalibrate()
+void SerialConsole::vCalibrate()
 {
 	delay(1000); //just be sure 
 	float oldV, newV, scale;
@@ -69,31 +69,6 @@ void vCalibrate()
 	EEPROM.write(0, settings);
 }
 
-void tCalibrate()
-{
-	delay(1000); //just be sure 
-	
-	float oldT, newT, scale;
-
-	for (int subpack = 1; subpack < 5; subpack++)
-	{
-		oldT = adc->getTemperature(subpack - 1);
-		SerialUSB.print("Reported temperature of subpack ");
-		SerialUSB.print(subpack);
-		SerialUSB.print(": ");
-		SerialUSB.println(oldT);
-		String input = SerialUSB.readString();
-		SerialUSB.print("Enter measured temperature: ");
-		newT = atof((char *)input.c_str());
-		scale = newT / oldT;
-		settings.tMultiplier[subpack - 1] *= scale;
-		SerialUSB.println();
-		delay(1000); //just be sure 
-	}
-	Serial.println("Temperatures have been calibrated and calibration saved to EEPROM");
-	EEPROM.write(0, settings);
-}
-
 void SerialConsole::printMenu() {
 	char buff[80];
 	//Show build # here as well in case people are using the native port and don't get to see the start up messages
@@ -106,7 +81,6 @@ void SerialConsole::printMenu() {
 	SerialUSB.println("Short Commands:");
 	SerialUSB.println("h = help (displays this message)");
 	SerialUSB.println("V = Calibrate voltage multipliers");
-	SerialUSB.println("T = Calibrate temperature multipliers");
 	SerialUSB.println("R = reset to factory defaults");
 	SerialUSB.println();
 	SerialUSB.println("Config Commands (enter command=newvalue). Current values shown in parenthesis:");
@@ -131,10 +105,11 @@ void SerialConsole::printMenu() {
 	Logger::console("VMULT4=%f - Set voltage multiplier for bank 4", settings.vMultiplier[3]);
 	SerialUSB.println();
 
-	Logger::console("TMULT1=%f - Set temperature multiplier for bank 1", settings.tMultiplier[0]);
-	Logger::console("TMULT2=%f - Set temperature multiplier for bank 2", settings.tMultiplier[1]);
-	Logger::console("TMULT3=%f - Set temperature multiplier for bank 3", settings.tMultiplier[2]);
-	Logger::console("TMULT4=%f - Set temperature multiplier for bank 4", settings.tMultiplier[3]);
+	
+	Logger::console("TMULT1=%f,%f,%f,%f - Set temperature coefficients for bank 1", settings.tMultiplier[0].A,settings.tMultiplier[0].B,settings.tMultiplier[0].C,settings.tMultiplier[0].adcToVolts);
+	Logger::console("TMULT2=%f,%f,%f,%f - Set temperature coefficients for bank 2", settings.tMultiplier[1].A,settings.tMultiplier[1].B,settings.tMultiplier[1].C,settings.tMultiplier[1].adcToVolts);
+	Logger::console("TMULT3=%f,%f,%f,%f - Set temperature coefficients for bank 3", settings.tMultiplier[2].A,settings.tMultiplier[2].B,settings.tMultiplier[2].C,settings.tMultiplier[2].adcToVolts);
+	Logger::console("TMULT4=%f,%f,%f,%f - Set temperature coefficients for bank 4", settings.tMultiplier[3].A,settings.tMultiplier[3].B,settings.tMultiplier[3].C,settings.tMultiplier[3].adcToVolts);
 	SerialUSB.println();
 }
 
@@ -252,19 +227,19 @@ void SerialConsole::handleConfigCmd() {
 		writeEEPROM = true;
 	} else if (cmdString == String("TMULT1")) {
 		Logger::console("Setting temperature multiplier bank 1 to %f", newValFloat);
-		settings.tMultiplier[0] = newValFloat;
+		//settings.tMultiplier[0] = newValFloat;
 		writeEEPROM = true;
 	} else if (cmdString == String("TMULT2")) {
 		Logger::console("Setting temperature multiplier bank 2 to %f", newValFloat);
-		settings.tMultiplier[1] = newValFloat;
+		//settings.tMultiplier[1] = newValFloat;
 		writeEEPROM = true;
 	} else if (cmdString == String("TMULT3")) {
 		Logger::console("Setting temperature multiplier bank 3 to %f", newValFloat);
-		settings.tMultiplier[2] = newValFloat;
+		//settings.tMultiplier[2] = newValFloat;
 		writeEEPROM = true;
 	} else if (cmdString == String("TMULT4")) {
 		Logger::console("Setting temperature multiplier bank 4 to %f", newValFloat);
-		settings.tMultiplier[3] = newValFloat;
+		//settings.tMultiplier[3] = newValFloat;
 		writeEEPROM = true;
 	} else if (cmdString == String("LOGLEVEL")) {
 		switch (newValue) {
@@ -322,10 +297,7 @@ void SerialConsole::handleShortCmd() {
 		//voltage calibration
 		vCalibrate();
 		break;
-	case 'T':
-		//tempurature
-		tCalibrate();
-		break;
+
 
 	}
 }

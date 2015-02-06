@@ -55,6 +55,7 @@ private:
 	void handleConsoleCmd();
 	void handleShortCmd();
     void handleConfigCmd();
+	void vCalibrate();
 };
 
 #endif /* SERIALCONSOLE_H_ */

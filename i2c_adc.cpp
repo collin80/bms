@@ -227,7 +227,16 @@ float ADCClass::getTemperature(int which)
 {
 	if (which < 0) return 0.0f;
 	if (which > 3) return 0.0f;
-	return (tAccum[which] * settings.tMultiplier[which]);
+
+	//temperature is much more complicated to calculate. Luckily we only do it when asked
+	//Basically just use a third order polynomial. The results are actually fairly linear but off by enough
+	//that it seems best to use a third order equation to get the best accuracy / time trade off.
+	//It isn't strictly necessary to have an ADC to Volts multiplier. The A,B,C coefficients could have accommodated this
+	//but then they'd be really, really tiny values and that's asking for trouble with floating point
+	//that is - trying to multiply very large values against very small - It's a bad idea.
+	float x = tAccum[which] * settings.tMultiplier[which].adcToVolts; 
+	float y = ((x * x * x) * settings.tMultiplier[which].A) + ((x * x) * settings.tMultiplier[which].B) + (x * settings.tMultiplier[which].C) + settings.tMultiplier[which].D;	
+	return (y);
 }
 
 

@@ -66,6 +66,12 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //Also triggers a reading immediately.
 #define ADS_CONFIG			ADS_DATARATE_15 | ADS_GAIN_1 | ADS_SINGLE | ADS_START
 
+struct POLYNOMIAL
+{
+	float A, B, C, D; //coefficients for third order polynomial y = AX^3 + BX^2 + CX + D
+	float adcToVolts; //scaling value to turn ADC value into volts for the above polynomial
+};
+
 struct EEPROMSettings {
 	uint8_t version;
 	uint32_t CANSpeed;
@@ -79,7 +85,12 @@ struct EEPROMSettings {
 	//Apparently first gen hardware actually has non-linearity for temp so handle specially.
 	//Each ADC channel has its own multipler because the hardware used could have some differences in resistance
 	float vMultiplier[4];
-	float tMultiplier[4]; 
+	POLYNOMIAL tMultiplier[4];	
+
+	uint32_t vNominal[4]; //Nominal voltage of each quadrant in hundredths of a volt
+
+	uint32_t maxPackAH; //number of amp hours in milliamp hours
+	uint32_t currentPackAH; //number of amp hours in MICRO amp hours. This is still fine within a 32 bit unsigned int
 	
 	uint8_t logLevel; //Level of logging to output on serial line
 

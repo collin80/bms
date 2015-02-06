@@ -45,17 +45,21 @@ ADCClass* adc;
 void loadEEPROM()
 {
 	EEPROM.read(0,settings);
-	if (settings.valid != 0xDE)
+	if (settings.valid != 0xDE || settings.version != 11)
 	{
 		settings.balanceThreshold = 0x200;
 		settings.cab300Address = 0x3C0;
 		settings.CANSpeed = 500000;
 		settings.CAN_Enabled = true;
 		settings.logLevel = 1;
-		settings.tMultiplier[0] = 0.045f;
-		settings.tMultiplier[1] = 0.045f;
-		settings.tMultiplier[2] = 0.045f;
-		settings.tMultiplier[3] = 0.045f;
+		for (int x = 0; x < 4; x++) 
+		{ 
+			settings.tMultiplier[x].adcToVolts = 0.0000625609f;
+			settings.tMultiplier[x].A = 1.8794f;
+			settings.tMultiplier[x].B = 2.561f;
+			settings.tMultiplier[x].C = 17.433f;
+			settings.tMultiplier[x].D = 22.679;
+		}
 		//voltage multipler calculated based on 100k battery resistance and 2k resistor on board.
 		//The actual multiplier will be a little bit off from this but this value is a good start.
 		settings.vMultiplier[0] = 0.001593752f;
@@ -87,13 +91,15 @@ void setupHardware()
 
   pinModeNonDue(CAN_TERM_1, OUTPUT );  
   pinModeNonDue(CAN_TERM_2, OUTPUT );
-  canbusTermDisable();
+  canbusTermEnable();
 
   if (settings.CAN_Enabled)
   {
 	Can0.begin(settings.CANSpeed, 255); //no enable pin
 	if (settings.cab300Address > 0) Can0.watchFor(settings.cab300Address); //allow through only this address for now
   }
+ 
+
   Can0.setGeneralCallback(canbusRX);
 }
 
@@ -102,31 +108,30 @@ void canbusRX(CAN_FRAME *frame)
 	if (frame->id == settings.cab300Address)
 	{
 		if (frame->data.byte[4] & 1) //ERROR!
-		{
-			SerialUSB.print("CAB300 - ");
+		{						
 			byte faultCode = frame->data.byte[4] >> 1;
 			switch (faultCode)
 			{
 			case 0x41:
-				SerialUSB.println("Error on dataflash CRC");
+				Logger::error("CAB300 - Error on dataflash CRC");				
 				break;
 			case 0x42:
-				SerialUSB.println("Fluxgate running high freq");
+				Logger::error("CAB300 - Fluxgate running high freq");
 				break;
 			case 0x43:
-				SerialUSB.println("Fluxgate not oscillating");
+				Logger::error("CAB300 - Fluxgate not oscillating");
 				break;
 			case 0x44:
-				SerialUSB.println("CAB entered failsafe mode");
+				Logger::error("CAB300 - CAB entered failsafe mode");
 				break;
 			case 0x46:
-				SerialUSB.println("Signal not avail");
+				Logger::error("CAB300 - Signal not avail");
 				break;
 			case 0x47:
-				SerialUSB.println("Bridge voltage protection");
+				Logger::error("CAB300 - Bridge voltage protection");
 				break;
 			default:
-				SerialUSB.println("Something bad happened");
+				Logger::error("CAB300 - Something bad happened");
 				break;
 			}
 		}
@@ -139,8 +144,8 @@ void canbusRX(CAN_FRAME *frame)
 			tempCurr += frame->data.byte[3];
 			int32_t currentReading = (int32_t)(tempCurr - 0x80000000);
 			float currentValue = currentReading / 1000.0f;
-			SerialUSB.print("CAB300 - Current: ");
-			SerialUSB.println(currentValue);
+			Logger::debug("CAB300 - Current %f", currentValue);
+
 		}
 	}
 }

@@ -78,6 +78,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="cab300.h" />
     <ClInclude Include="i2c_adc.h">
       <FileType>CppCode</FileType>
     </ClInclude>
@@ -90,6 +91,7 @@
     <ClInclude Include="Visual Micro\.bms.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="cab300.cpp" />
     <ClCompile Include="i2c_adc.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="SamNonDuePin.cpp" />
@@ -100,7 +102,7 @@
   </ImportGroup>
   <ProjectExtensions>
     <VisualStudio>
-      <UserProperties arduino.upload.port="COM3" />
+      <UserProperties arduino.upload.port="COM4" />
     </VisualStudio>
   </ProjectExtensions>
 </Project>
