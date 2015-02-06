@@ -104,6 +104,8 @@ void setupHardware()
 
 void canbusRX(CAN_FRAME *frame)
 {
+	static int32_t lastMillis;
+	uint32_t currentMillis = millis();
 	if (frame->id == settings.cab300Address)
 	{
 		if (frame->data.byte[4] & 1) //ERROR!
@@ -144,7 +146,32 @@ void canbusRX(CAN_FRAME *frame)
 			int32_t currentReading = (int32_t)(tempCurr - 0x80000000);
 			float currentValue = currentReading / 1000.0f;
 			Logger::debug("CAB300 - Current %f", currentValue);
+			if (lastMillis > 0)
+			{			
+			   //currentReading is in milliamps but currentPackAH is in tenths of a microamp so * 10,000 but our time interval
+				//is milliseconds and there are 3,600,000 ms per hour so together that's just / 360
+				//times the number of milliseconds elapsed.
+				//this is subtracted from the current number of AH left in the pack.
+				//Which means that negative current really does charge.
 
+				uint32_t deltaAH = (currentReading * (currentMillis - lastMillis)) / 360;
+
+				if (deltaAH <= settings.currentPackAH)
+				{
+					settings.currentPackAH -= deltaAH;
+				}
+				else 
+				{
+					settings.currentPackAH = 0;
+					Logger::error("PACK TOTALLY EMPTY! QUIT DISCHARGING DAMN IT!");
+				}
+				if (settings.currentPackAH > settings.maxPackAH) {
+					settings.currentPackAH = settings.maxPackAH; //cap at top of capacity
+					Logger::info("Pack is likely fully charged. Might want to stop charging");
+				}
+			   
+			}
+			lastMillis = currentMillis;
 		}
 	}
 }

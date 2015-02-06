@@ -90,8 +90,8 @@ struct EEPROMSettings {
 
 	uint32_t vNominal[4]; //Nominal voltage of each quadrant in hundredths of a volt
 
-	uint32_t maxPackAH; //number of amp hours in milliamp hours
-	uint32_t currentPackAH; //number of amp hours in MICRO amp hours. This is still fine within a 32 bit unsigned int
+	uint32_t maxPackAH; //number of amp hours in tenths of a microamp
+	uint32_t currentPackAH; //number of amp hours in tenths of a micro amp - The top for 32bit int is approx 4 billion which gives top pack size of 4B/10M = 400AH
 	
 	uint8_t logLevel; //Level of logging to output on serial line
 
