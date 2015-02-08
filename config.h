@@ -79,8 +79,13 @@ struct EEPROMSettings {
 	boolean TermEnabled; //should we enable canbus termination?
 
 	int32_t cab300Address; //either 0x3C0 or 0x3C2 so far. Set to 0 if there isn't one installed in the car.
+	int32_t bmsBaseAddress; //base address for our status messages. Automatically extended frames if over 0x7F0
 
 	uint16_t balanceThreshold; //how close in value the min and max sections can be without faulting - In millivolts
+	uint16_t lowThreshold; //in millivolts - lowest average cell voltage acceptable
+	uint16_t highThreshold; //in millivolts - highest average cell voltage acceptable
+	int16_t lowTempThresh; //in tenths of a degree - Lowest acceptable temperature in celsius
+	int16_t highTempThresh; //in tenths of a degree - highest acceptable temperature in celsius
 	
 	//these two turn the ADC readings into volts/degrees.
 	//Apparently first gen hardware actually has non-linearity for temp so handle specially.
@@ -88,7 +93,7 @@ struct EEPROMSettings {
 	float vMultiplier[4];
 	POLYNOMIAL tMultiplier[4];	
 
-	uint32_t vNominal[4]; //Nominal voltage of each quadrant in hundredths of a volt
+	uint8_t numQuadCells[4]; //number of series cells for each quadrant - allows for asymmetric quadrants
 
 	uint32_t maxPackAH; //number of amp hours in tenths of a microamp
 	uint32_t currentPackAH; //number of amp hours in tenths of a micro amp - The top for 32bit int is approx 4 billion which gives top pack size of 4B/10M = 400AH

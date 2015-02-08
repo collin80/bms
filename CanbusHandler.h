@@ -44,6 +44,7 @@ public:
 	void setup();
 	static CANBusHandler *getInstance();
 	void gotFrame(CAN_FRAME *frame);
+	void loop();
 protected:
 private:
 	static CANBusHandler* instance;

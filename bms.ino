@@ -42,13 +42,24 @@ SerialConsole	console;
 CANBusHandler *cbHandler;
 ADCClass *adc;
 
+bool firstConnect = true;
+bool needInitialConfig = false;
+
 /*Load settings from EEPROM. Fill out settings if not initialized yet*/
 void loadEEPROM()
 {
 	EEPROM.read(0,settings);
 	if (settings.valid != 0xDE || settings.version != CFG_EEPROM_VER)
 	{
-		settings.balanceThreshold = 0x200;
+		settings.balanceThreshold = 0x200; //512 mv
+		settings.currentPackAH  = 0;
+		settings.maxPackAH = 0; //there's no way to know...
+		settings.highTempThresh = 800; //80C - HOT!
+		settings.lowTempThresh = -50; //-5C - Chilly!
+		settings.highThreshold = 3850; //3.850 volts
+		settings.lowThreshold = 2700; //2.700 volts		
+		
+		settings.bmsBaseAddress = 0x606;
 		settings.cab300Address = 0x3C0;
 		settings.CANSpeed = 500000;
 		settings.TermEnabled = true;
@@ -60,15 +71,19 @@ void loadEEPROM()
 			settings.tMultiplier[x].B = 2.561f;
 			settings.tMultiplier[x].C = 17.433f;
 			settings.tMultiplier[x].D = 22.679;
+			settings.numQuadCells[x] = 0;
+			settings.vMultiplier[x] = 0.01285f;
 		}
-		//values here were found by trial and careful measuring. Your milleage may vary.
-		settings.vMultiplier[0] = 0.01285f;
-		settings.vMultiplier[1] = 0.01285f;
-		settings.vMultiplier[2] = 0.01285f;
-		settings.vMultiplier[3] = 0.01285f;
 		settings.valid = 0xDE;
 		settings.version = CFG_EEPROM_VER;		
-		EEPROM.write(0, settings);
+		EEPROM.write(0, settings);		
+	}
+
+	//do some sanity checks to see if things seem to be set up
+	if (settings.currentPackAH == 0 || settings.numQuadCells[0] == 0 ||
+		settings.maxPackAH == 0)
+	{
+		needInitialConfig = true; 
 	}
 }
 
@@ -93,11 +108,22 @@ void setup()
   adc = ADCClass::getInstance();
   adc->setup();
 
-  console.printMenu();
 }
 
 void loop()
 {
+	if (SerialUSB)
+	{
+		if (firstConnect)
+		{
+			firstConnect = false;
+
+			if (!needInitialConfig)
+				console.printMenu();			
+			else
+				console.InitialConfig();
+		}
+	}
 	if (SerialUSB.available()) 
 	{
 		console.rcvCharacter((uint8_t)SerialUSB.read());

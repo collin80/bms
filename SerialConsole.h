@@ -39,12 +39,27 @@ class SerialConsole {
 public:
     SerialConsole();
 	void printMenu();
-	void rcvCharacter(uint8_t chr);
+	void InitialConfig();
+	bool rcvCharacter(uint8_t chr);
 
 protected:
 	enum CONSOLE_STATE
 	{
-		STATE_ROOT_MENU
+		STATE_ROOT_MENU, 
+		STATE_GET_CANBUSRATE,
+		STATE_GET_CANTERM,
+		STATE_GET_CAB300,
+		STATE_GET_BALANCE,
+		STATE_GET_LOWV,
+		STATE_GET_HIGHV,
+		STATE_GET_LOWT,
+		STATE_GET_HIGHT,
+		STATE_GET_QUAD1,
+		STATE_GET_QUAD2,
+		STATE_GET_QUAD3,
+		STATE_GET_QUAD4,
+		STATE_GET_MAXAH,
+		STATE_GET_CURRAH
 	};
 
 private:
@@ -57,6 +72,8 @@ private:
 	void handleShortCmd();
     void handleConfigCmd();
 	void vCalibrate();
+	void getReply();
+	void appendCmd(String cmd);
 };
 
 #endif /* SERIALCONSOLE_H_ */

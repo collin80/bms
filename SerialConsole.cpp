@@ -95,10 +95,27 @@ void SerialConsole::printMenu() {
 	Logger::console("CANSPEED=%i - Set speed of CAN in baud (125000, 250000, etc)", settings.CANSpeed);
 	SerialUSB.println();
 
-	Logger::console("CABADDR=%i - Set address of CAB300 sensor", settings.cab300Address);
+	Logger::console("CABADDR=%x - Set address of CAB300 sensor", settings.cab300Address);
+	SerialUSB.println();
+
+	Logger::console("BASEADDR=%x - Set base address for status messages", settings.bmsBaseAddress);
 	SerialUSB.println();
 
 	Logger::console("BALTHR=%i - Set balancing threshold (millivolts)", settings.balanceThreshold);
+	Logger::console("LOWTHR=%i - Set low cell voltage threshold (millivolts)", settings.lowThreshold);
+	Logger::console("HIGHTHR=%i - Set high cell voltage (millivolts)", settings.highThreshold);
+	Logger::console("LOWTEMP=%i - Set lowest acceptable temperature (In tenths of deg C)", settings.lowTempThresh);
+	Logger::console("HIGHTEMP=%i - Set highest acceptable temperature (In tenths of a deg C)", settings.highTempThresh);
+	SerialUSB.println();
+
+	Logger::console("Q1CELLS=%i - Set number of series cells in quadrant 1", settings.numQuadCells[0]);
+	Logger::console("Q2CELLS=%i - Set number of series cells in quadrant 2", settings.numQuadCells[1]);
+	Logger::console("Q3CELLS=%i - Set number of series cells in quadrant 3", settings.numQuadCells[2]);
+	Logger::console("Q4CELLS=%i - Set number of series cells in quadrant 4", settings.numQuadCells[3]);
+	SerialUSB.println();
+
+	Logger::console("MAXAH=%i - Set pack AH capacity (in tenths of an AH)", (settings.maxPackAH / 100000));
+	Logger::console("CURRAH=%i - Set current AH state of pack (tenths of AH)", (settings.currentPackAH / 100000));
 	SerialUSB.println();
 
 	Logger::console("VMULT1=%f - Set voltage multiplier for bank 1", settings.vMultiplier[0]);
@@ -138,29 +155,110 @@ void SerialConsole::printMenu() {
  Now the system can handle up to 80 input characters. Commands are submitted
  by sending line ending (LF, CR, or both)
  */
-void SerialConsole::rcvCharacter(uint8_t chr) {
+bool SerialConsole::rcvCharacter(uint8_t chr) {
 	if (chr == 10 || chr == 13) { //command done. Parse it.
 		handleConsoleCmd();
 		ptrBuffer = 0; //reset line counter once the line has been processed
+		return true;
 	} else {
 		cmdBuffer[ptrBuffer++] = (unsigned char) chr;
 		if (ptrBuffer > 79)
 			ptrBuffer = 79;
 	}
+	return false;
+}
+
+void SerialConsole::appendCmd(String cmd)
+{
+	String buildString;
+	const char* tempStr;
+
+	buildString = cmd;
+	buildString += String(cmdBuffer);		
+	tempStr = buildString.c_str();
+	ptrBuffer = strlen(tempStr);
+	for (int x = 0; x < ptrBuffer; x++)
+	{
+		cmdBuffer[x] = tempStr[x];
+	}
 }
 
 void SerialConsole::handleConsoleCmd() {
+
 	if (!adc) adc = ADCClass::getInstance();
 	if (!cbHandler) cbHandler = CANBusHandler::getInstance();
 
-	if (state == STATE_ROOT_MENU) {
+	cmdBuffer[ptrBuffer] = 0; //make sure to null terminate
+
+	switch (state)
+	{
+	case STATE_ROOT_MENU:
 		if (ptrBuffer == 1) { //command is a single ascii character
 			handleShortCmd();
 		} else { //if cmd over 1 char then assume (for now) that it is a config line
 			handleConfigCmd();
-		}
-		ptrBuffer = 0; //reset line counter once the line has been processed
+		}		
+		break;
+	case STATE_GET_CANBUSRATE:
+		appendCmd("CANSPEED=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_CANTERM:
+		appendCmd("TERMEN=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_CAB300:
+		appendCmd("CABADDR=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_BALANCE:
+		appendCmd("BALTHR=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_LOWV:
+		appendCmd("LOWTHR=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_HIGHV:
+		appendCmd("HIGHTHR=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_LOWT:
+		appendCmd("LOWTEMP=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_HIGHT:
+		appendCmd("HIGHTEMP=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_QUAD1:
+		appendCmd("QCELLS1=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_QUAD2:
+		appendCmd("QCELLS2=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_QUAD3:
+		appendCmd("QCELLS3=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_QUAD4:
+		appendCmd("QCELLS4=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_MAXAH:
+		appendCmd("MAXAH=");
+		handleConfigCmd();
+		break;
+	case STATE_GET_CURRAH:
+		appendCmd("CURRAH=");
+		handleConfigCmd();
+		break;
+
 	}
+
+	ptrBuffer = 0; //reset line counter once the line has been processed
 }
 
 /*For simplicity the configuration setting code uses four characters for each configuration choice. This makes things easier for
@@ -176,7 +274,6 @@ void SerialConsole::handleConfigCmd() {
 	//Logger::debug("Cmd size: %i", ptrBuffer);
 	if (ptrBuffer < 6)
 		return; //4 digit command, =, value is at least 6 characters
-	cmdBuffer[ptrBuffer] = 0; //make sure to null terminate
 	String cmdString = String();
 	unsigned char whichEntry = '0';
 	i = 0;
@@ -219,11 +316,19 @@ void SerialConsole::handleConfigCmd() {
 	} else if (cmdString == String("CABADDR")) {
 		if (newValue > 0 && newValue <= 0x7FF) 
 		{
-			Logger::console("Setting CAB Address to %i", newValue);
+			Logger::console("Setting CAB Address to %x", newValue);
 			settings.cab300Address = newValue;
 			writeEEPROM = true;
 		}
-		else Logger::console("Invalid address! Enter a value 0 - 7FF");
+		else Logger::console("Invalid address! Enter a value 0 - 0x7FF");
+	} else if (cmdString == String("BASEADDR")) {
+		if (newValue > 0 && newValue <= 0x1FFFFFFF) 
+		{
+			Logger::console("Setting base Address to %x", newValue);
+			settings.bmsBaseAddress = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid address! Enter a value 0 - 0x1FFFFFFF");
 	} else if (cmdString == String("BALTHR")) {
 		if (newValue > 0) 
 		{
@@ -232,6 +337,86 @@ void SerialConsole::handleConfigCmd() {
 			writeEEPROM = true;
 		}
 		else Logger::console("Invalid threshold! It has to be positive!");
+	} else if (cmdString == String("LOWTHR")) {
+		if (newValue > 0) 
+		{
+			Logger::console("Setting low voltage threshold to %i", newValue);
+			settings.lowThreshold = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid threshold! It has to be positive!");
+	} else if (cmdString == String("HIGHTHR")) {
+		if (newValue > 0) 
+		{
+			Logger::console("Setting high voltage threshold to %i", newValue);
+			settings.highThreshold = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid threshold! It has to be positive!");
+	} else if (cmdString == String("LOWTEMP")) {
+		if (newValue >= -400  && newValue <= 1000) 
+		{
+			Logger::console("Setting low temperature threshold to %i", newValue);
+			settings.lowTempThresh = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid threshold! Set between -400 and 1000");
+	} else if (cmdString == String("HIGHTEMP")) {
+		if (newValue >= -400 && newValue <= 1000) 
+		{
+			Logger::console("Setting high temperature threshold to %i", newValue);
+			settings.highTempThresh = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid threshold! Set between -400 and 1000");
+	} else if (cmdString == String("Q1CELLS")) {
+		if (newValue >= 0 && newValue <= 120) 
+		{
+			Logger::console("Setting number of cells in quad 1 to %i", newValue);
+			settings.numQuadCells[0] = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid! Must enter value between 0 and 120");
+	} else if (cmdString == String("Q2CELLS")) {
+		if (newValue >= 0 && newValue <= 120) 
+		{
+			Logger::console("Setting number of cells in quad 1 to %i", newValue);
+			settings.numQuadCells[1] = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid! Must enter value between 0 and 120");
+	} else if (cmdString == String("Q3CELLS")) {
+		if (newValue >= 0 && newValue <= 120) 
+		{
+			Logger::console("Setting number of cells in quad 1 to %i", newValue);
+			settings.numQuadCells[2] = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid! Must enter value between 0 and 120");
+	} else if (cmdString == String("Q4CELLS")) {
+		if (newValue >= 0 && newValue <= 120) 
+		{
+			Logger::console("Setting number of cells in quad 1 to %i", newValue);
+			settings.numQuadCells[3] = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid! Must enter value between 0 and 120");
+	} else if (cmdString == String("MAXAH")) {
+		if (newValue > 0) 
+		{
+			Logger::console("Setting pack AH capacity to to %i", newValue);
+			settings.maxPackAH = newValue * 100000;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid! Entered value must be positive!");
+	} else if (cmdString == String("CURRAH")) {
+		if (newValue > 0) 
+		{
+			Logger::console("Setting pack AH capacity to to %i", newValue);
+			settings.currentPackAH = newValue * 100000;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid! Entered value must be positive!");
 	} else if (cmdString == String("VMULT1")) {
 		Logger::console("Setting voltage multiplier bank 1 to %f", newValFloat);
 		settings.vMultiplier[0] = newValFloat;
@@ -373,4 +558,92 @@ void SerialConsole::handleShortCmd() {
 	}
 }
 
+void SerialConsole::getReply()
+{
+	for (;;)
+	{
+		if (SerialUSB.available()) 
+		{
+			if (rcvCharacter((uint8_t)SerialUSB.read())) return;
+		}
+	}
+}
 
+/*
+Creates a nice interface to automatically ask for all the stuff that must be set up
+upon a new installation. Actually calls into the existing routines so it's really just
+an easier approach to the existing routines
+*/
+void SerialConsole::InitialConfig()
+{
+	SerialUSB.println();
+	SerialUSB.println();
+	SerialUSB.println();
+	SerialUSB.println("                            Initial Setup");
+	SerialUSB.println();
+	SerialUSB.println("It appears that this is a new BMS installation. Let's get you set up.");
+	SerialUSB.println("Enter 0 for anything you don't know the answer to");
+	SerialUSB.println();
+	
+	state = STATE_GET_CANBUSRATE;
+	SerialUSB.println("1. What canbus baud rate do you need?");
+	getReply();
+
+	state = STATE_GET_CANTERM;
+	SerialUSB.println("2. Do you need canbus termination at this BMS? (0 = no, 1 = yes)");
+	getReply();
+	
+	state = STATE_GET_CAB300;
+	SerialUSB.println("3. If you have a CAB300 sensor installed please enter its address (0 = no CAB300)");
+	getReply();
+	
+	state = STATE_GET_BALANCE;
+	SerialUSB.println("4. Maximum variation between average cell voltage to allow? (in millivolts) ");
+	getReply();
+	
+	state = STATE_GET_LOWV;
+	SerialUSB.println("5. Lowest average cell voltage to allow? (in millivolts) ");
+	getReply();
+
+	state = STATE_GET_HIGHV;
+	SerialUSB.println("6. Highest average cell voltage to allow? (in millivolts) ");
+	getReply();
+	
+	state = STATE_GET_LOWT;
+	SerialUSB.println("7. Lowest cell temperature to allow? (Tenths of a degree C) ");
+	getReply();
+
+	state = STATE_GET_HIGHT;
+	SerialUSB.println("8. Highest cell temperature to allow? (Tenths of a degree C) ");
+	getReply();
+    
+	state = STATE_GET_QUAD1;
+	SerialUSB.println("Now, the pack should be divided into four quadrants.");
+	SerialUSB.println("9. Number of series cells in first quadrant? ");
+	getReply();
+	
+	state = STATE_GET_QUAD2;
+	SerialUSB.println("10. Number of series cells in second quadrant? ");
+	getReply();
+	
+	state = STATE_GET_QUAD3;
+	SerialUSB.println("11. Number of series cells in third quadrant? ");
+	getReply();
+	
+	state = STATE_GET_QUAD4;
+	SerialUSB.println("12. Number of series cells in fourth quadrant? ");
+	getReply();
+	
+	state = STATE_GET_MAXAH;
+	SerialUSB.println("13. How many amp hours is this pack (in tenths of an AH)");
+	getReply();
+	
+	state = STATE_GET_CURRAH;
+	SerialUSB.println("14. How many amp hours would you estimate the pack is charged to? (Tenths of an AH) ");
+	getReply();
+	
+	SerialUSB.println();
+	SerialUSB.println();
+	SerialUSB.println("That's it! You're all set! I'm going to enable the BMS now!");
+	state = STATE_ROOT_MENU;
+}

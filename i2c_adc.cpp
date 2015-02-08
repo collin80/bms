@@ -36,7 +36,7 @@ extern EEPROMSettings settings;
 ADCClass* ADCClass::instance = NULL;
 volatile bool doADC = false;
 
-void tickBounce()
+void adcTickBounce()
 {
 	doADC = true;	
 }
@@ -70,7 +70,7 @@ void ADCClass::setup()
 	pinModeNonDue(SWITCH_THERM4, OUTPUT );
 	setAllThermOff();
 
-	Timer3.attachInterrupt(tickBounce);
+	Timer3.attachInterrupt(adcTickBounce);
 	Timer3.start(80000); //trigger every 80ms
 }
 

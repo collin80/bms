@@ -27,6 +27,23 @@
 
 CANBusHandler *CANBusHandler::instance = NULL;
 extern EEPROMSettings settings;
+volatile bool DoStatus1 = false;
+volatile bool DoStatus2 = false;
+volatile bool DoStatus3 = false;
+volatile uint8_t intCounter = 0;
+
+//the status 1 message is sent every 100ms, the others are sent every 500ms
+void tickBounce()
+{
+	DoStatus1 = true;
+	intCounter++;
+	if (intCounter == 4)
+	{
+		DoStatus2 = true;
+		DoStatus3 = true;
+		intCounter = 0;
+	}
+}
 
 //bounces frame back into class object
 void canbusRX(CAN_FRAME *frame)
@@ -71,9 +88,27 @@ void CANBusHandler::setup()
  
 	Can0.setGeneralCallback(canbusRX);
 
+	Timer5.attachInterrupt(tickBounce);
+	Timer5.start(100000); //100ms
 }
 
 void CANBusHandler::gotFrame(CAN_FRAME *frame)
 {
 	if (cab300) cab300->processFrame(*frame);
+}
+
+void CANBusHandler::loop()
+{
+	if (DoStatus1)
+	{
+		DoStatus1 = false;
+	}
+	if (DoStatus2)
+	{
+		DoStatus2 = false;
+	}
+	if (DoStatus3)
+	{
+		DoStatus3 = false;
+	}
 }
