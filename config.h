@@ -29,8 +29,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
-#define CFG_BUILD_NUM	0x10
-#define CFG_EEPROM_VER	12
+#define CFG_BUILD_NUM	0x20
+#define CFG_EEPROM_VER	13
 
 #define VIN_ADDR		0x48 // ADS1110-A0 the device address is 0x48  Voltage input
 #define THERM_ADDR		0x4A // ADS1110-A2 the device address is 0x4A  Thermistor input
@@ -76,7 +76,7 @@ struct POLYNOMIAL
 struct EEPROMSettings {
 	uint8_t version;
 	uint32_t CANSpeed;
-	boolean CAN_Enabled;
+	boolean TermEnabled; //should we enable canbus termination?
 
 	int32_t cab300Address; //either 0x3C0 or 0x3C2 so far. Set to 0 if there isn't one installed in the car.
 
@@ -97,5 +97,46 @@ struct EEPROMSettings {
 
 	uint16_t valid; //stores a validity token to make sure EEPROM is not corrupt
 };
+
+//bitfield definitions for the status byte of the below frame data definition
+enum BMS_BITFIELD
+{
+	LOWV = 1, //one or more quadrants are too low in voltage
+	HIGHV = 2, //one or more quadrants are too high in voltage
+	LOWT = 4, //one or more quads are too cold
+	HIGHT = 8, //one or more quads are too hot
+	IMBALANCE = 16, //quadrants are out of balance.
+	DISCHARGE_OK = 32, //it is allowable to discharge the battery
+	CHARGE_OK = 64, //it is allowable to charge the battery
+	FAULT = 128 //something is wrong with the BMS
+};
+
+//general status - broadcast at base address
+struct BMS_STATUS_1
+{
+	uint16_t packvolts; //stored in hundredths of a volt so 40000 = 400volts. Top voltage is thus 655 volts
+	int16_t packamps; //stored in hundredths of an amp so 4000 = 40 amps out. -4000 would be 40 amps in
+	uint8_t soc; //state of charge scaled to the full 0 to 255.
+	uint8_t status; //bitfield that conforms to BMS_BITFIELD enum above
+};
+
+//voltage of each quad - broadcast at base address + 1
+struct BMS_STATUS_2
+{
+	uint16_t quad1; //voltage of first quadrant in hundredths of a volt
+	uint16_t quad2; //second quad
+	uint16_t quad3; //third
+	uint16_t quad4; //fourth
+};
+
+//temperature of each quad - broadcast at base address + 2
+struct BMS_STATUS_3
+{
+	int16_t quad1; //temperature of first quadrant in tenths of a degree centigrade (250 = 25.0 degrees)
+	int16_t quad2; //second quad
+	int16_t quad3; //third
+	int16_t quad4; //fourth
+};
+
 
 #endif

@@ -31,7 +31,9 @@
 //doin' it old school here... should be doing this object oriented but instead this is 
 //the cheap and dirty approach
 extern EEPROMSettings settings;
+
 extern ADCClass* adc;
+extern CANBusHandler *cbHandler;
 
 SerialConsole::SerialConsole() {
 	init();
@@ -89,7 +91,7 @@ void SerialConsole::printMenu() {
     Logger::console("LOGLEVEL=%i - set log level (0=debug, 1=info, 2=warn, 3=error, 4=off)", settings.logLevel);
 	SerialUSB.println();
 
-	Logger::console("CANEN=%i - Enable/Disable CAN (0 = Disable, 1 = Enable)", settings.CAN_Enabled);
+	Logger::console("TERMEN=%i - Enable/Disable CAN Termination (0 = Disable, 1 = Enable)", settings.TermEnabled);
 	Logger::console("CANSPEED=%i - Set speed of CAN in baud (125000, 250000, etc)", settings.CANSpeed);
 	SerialUSB.println();
 
@@ -148,6 +150,9 @@ void SerialConsole::rcvCharacter(uint8_t chr) {
 }
 
 void SerialConsole::handleConsoleCmd() {
+	if (!adc) adc = ADCClass::getInstance();
+	if (!cbHandler) cbHandler = CANBusHandler::getInstance();
+
 	if (state == STATE_ROOT_MENU) {
 		if (ptrBuffer == 1) { //command is a single ascii character
 			handleShortCmd();
@@ -194,13 +199,13 @@ void SerialConsole::handleConfigCmd() {
 
 	cmdString.toUpperCase();
 
-	if (cmdString == String("CANEN")) {
+	if (cmdString == String("TERMEN")) {
 		if (newValue < 0) newValue = 0;
 		if (newValue > 1) newValue = 1;
-		Logger::console("Setting CAN Enabled to %i", newValue);
-		settings.CAN_Enabled = newValue;
-		if (newValue == 1) Can0.begin(settings.CANSpeed, 255);
-		else Can0.disable();
+		Logger::console("Setting CAN Termination Enable to %i", newValue);
+		settings.TermEnabled = newValue;
+		if (newValue == 1) cbHandler->canbusTermEnable();
+		else cbHandler->canbusTermDisable();
 		writeEEPROM = true;
 	} else if (cmdString == String("CANSPEED")) {
 		if (newValue > 0 && newValue <= 1000000) 

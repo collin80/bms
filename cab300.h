@@ -26,6 +26,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <Arduino.h>
 #include "due_can.h"
+#include "Logger.h"
 #include "config.h"
 
 #ifndef CAB300_H_
@@ -33,7 +34,12 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 class CAB300
 {
+public:
 	void processFrame(CAN_FRAME &frame);
+	int32_t getAmps(); //get last amperage reading
+
+private:
+	int32_t amperageReading;
 };
 
 #endif

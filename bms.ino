@@ -35,11 +35,12 @@ This is the golden combo.
 #include <DueTimer.h>
 #include "config.h"
 #include "SerialConsole.h"
-#include "i2c_adc.h"
+#include "CanbusHandler.h"
 
 EEPROMSettings settings;
 SerialConsole	console;
-ADCClass* adc;
+CANBusHandler *cbHandler;
+ADCClass *adc;
 
 /*Load settings from EEPROM. Fill out settings if not initialized yet*/
 void loadEEPROM()
@@ -50,7 +51,7 @@ void loadEEPROM()
 		settings.balanceThreshold = 0x200;
 		settings.cab300Address = 0x3C0;
 		settings.CANSpeed = 500000;
-		settings.CAN_Enabled = true;
+		settings.TermEnabled = true;
 		settings.logLevel = 1;
 		for (int x = 0; x < 4; x++) 
 		{ 
@@ -71,109 +72,15 @@ void loadEEPROM()
 	}
 }
 
-void canbusTermEnable()
-{
-  digitalWriteNonDue( CAN_TERM_1, HIGH );  
-  digitalWriteNonDue( CAN_TERM_2, HIGH );
-
-}
-
-void canbusTermDisable()
-{
-  digitalWriteNonDue( CAN_TERM_1, LOW );  
-  digitalWriteNonDue( CAN_TERM_2, LOW );
-}
-
 void setupHardware()
 {
 	loadEEPROM();
 
-  pinModeNonDue(CAN_TERM_1, OUTPUT );  
-  pinModeNonDue(CAN_TERM_2, OUTPUT );
-  canbusTermEnable();
+	pinModeNonDue(CAN_TERM_1, OUTPUT );  
+	pinModeNonDue(CAN_TERM_2, OUTPUT );
 
-  if (settings.CAN_Enabled)
-  {
-	Can0.begin(settings.CANSpeed, 255); //no enable pin
-	if (settings.cab300Address > 0) Can0.watchFor(settings.cab300Address); //allow through only this address for now
-  }
- 
-
-  Can0.setGeneralCallback(canbusRX);
-}
-
-void canbusRX(CAN_FRAME *frame)
-{
-	static int32_t lastMillis;
-	uint32_t currentMillis = millis();
-	if (frame->id == settings.cab300Address)
-	{
-		if (frame->data.byte[4] & 1) //ERROR!
-		{						
-			byte faultCode = frame->data.byte[4] >> 1;
-			switch (faultCode)
-			{
-			case 0x41:
-				Logger::error("CAB300 - Error on dataflash CRC");				
-				break;
-			case 0x42:
-				Logger::error("CAB300 - Fluxgate running high freq");
-				break;
-			case 0x43:
-				Logger::error("CAB300 - Fluxgate not oscillating");
-				break;
-			case 0x44:
-				Logger::error("CAB300 - CAB entered failsafe mode");
-				break;
-			case 0x46:
-				Logger::error("CAB300 - Signal not avail");
-				break;
-			case 0x47:
-				Logger::error("CAB300 - Bridge voltage protection");
-				break;
-			default:
-				Logger::error("CAB300 - Something bad happened");
-				break;
-			}
-		}
-		else
-		{
-			int64_t tempCurr;
-			tempCurr = frame->data.byte[0] << 24;
-			tempCurr += frame->data.byte[1] << 16;
-			tempCurr += frame->data.byte[2] << 8;
-			tempCurr += frame->data.byte[3];
-			int32_t currentReading = (int32_t)(tempCurr - 0x80000000);
-			float currentValue = currentReading / 1000.0f;
-			Logger::debug("CAB300 - Current %f", currentValue);
-			if (lastMillis > 0)
-			{			
-			   //currentReading is in milliamps but currentPackAH is in tenths of a microamp so * 10,000 but our time interval
-				//is milliseconds and there are 3,600,000 ms per hour so together that's just / 360
-				//times the number of milliseconds elapsed.
-				//this is subtracted from the current number of AH left in the pack.
-				//Which means that negative current really does charge.
-
-				uint32_t deltaAH = (currentReading * (currentMillis - lastMillis)) / 360;
-
-				if (deltaAH <= settings.currentPackAH)
-				{
-					settings.currentPackAH -= deltaAH;
-				}
-				else 
-				{
-					settings.currentPackAH = 0;
-					Logger::error("PACK TOTALLY EMPTY! QUIT DISCHARGING DAMN IT!");
-				}
-				if (settings.currentPackAH > settings.maxPackAH) {
-					settings.currentPackAH = settings.maxPackAH; //cap at top of capacity
-					Logger::info("Pack is likely fully charged. Might want to stop charging");
-				}
-			   
-			}
-			lastMillis = currentMillis;
-		}
-	}
+	cbHandler = CANBusHandler::getInstance();
+	cbHandler->setup();
 }
 
 void setup()
