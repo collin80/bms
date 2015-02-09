@@ -130,4 +130,5 @@ void loop()
 		console.rcvCharacter((uint8_t)SerialUSB.read());
 	}
 	adc->loop();
+	cbHandler->loop();
 }

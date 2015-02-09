@@ -148,6 +148,8 @@ void ADCClass::handleTick()
 	//these track the proper place to save in. It is one before vNum and tNum
 	byte vSave, tSave;
 
+	int vTemp, tTemp;
+
 	//avoid negative numbers
 	vSave = (vNum + 3) % 4;
 	tSave = (tNum + 3) % 4;
@@ -161,26 +163,27 @@ void ADCClass::handleTick()
 	if (adsGetData(VIN_ADDR, readValue)) 
 	{
 		vReading[vSave][vReadingPos] = readValue;
-		vReadingPos = (vReadingPos + 1) & (SAMPLES-1);
-		vAccum[vSave] = 0;
+		vReadingPos = (vReadingPos + 1) & (SAMPLES-1);		
+		vTemp = 0;
 		for (x = 0; x < SAMPLES; x++)
 		{
-			vAccum[vSave] += vReading[vSave][x];
+			vTemp += vReading[vSave][x];
 		}
-		vAccum[vSave] /= SAMPLES;
+		vTemp /= SAMPLES;
+		vAccum[vSave] = vTemp;
 	}
 
 	if (adsGetData(THERM_ADDR, readValue)) 
 	{
 		tReading[tSave][tReadingPos] = readValue;	
 		tReadingPos = (tReadingPos + 1) & (SAMPLES-1);
-		tAccum[tSave] = 0;
+		tTemp = 0;
 		for (x = 0; x < SAMPLES; x++)
 		{
-			tAccum[tSave] += tReading[tSave][x];
+			tTemp += tReading[tSave][x];
 		}
-		tAccum[tSave] /= SAMPLES;
-
+		tTemp /= SAMPLES;
+		tAccum[tSave] = tTemp;
 	}
 
 	//Set up for the next set of readings
@@ -271,9 +274,6 @@ int ADCClass::getRawT(int which)
 	return tAccum[which];
 }
 
-//note that it reverses the order of inputs. For some reason it seems like everything is backwards but I'm loathe to
-//switch up the switching order because it seems to work. But, maybe change the switching pins at some point
-//or figure out why things seem backward.
 float ADCClass::getVoltage(int which)
 {
 	if (which < 0) return 0.0f;

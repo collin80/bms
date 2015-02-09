@@ -91,6 +91,8 @@ void CANBusHandler::setup()
 
 	Timer5.attachInterrupt(tickBounce);
 	Timer5.start(100000); //100ms
+
+	adc = ADCClass::getInstance();
 }
 
 void CANBusHandler::gotFrame(CAN_FRAME *frame)
@@ -102,6 +104,9 @@ void CANBusHandler::loop()
 {
 	CAN_FRAME frame;
 	frame.length = 8;
+	if (settings.bmsBaseAddress < 0x7E0) frame.extended = false;
+	else frame.extended = true;
+
 
 	if (DoStatus1)
 	{
@@ -109,7 +114,7 @@ void CANBusHandler::loop()
 		frame.id = settings.bmsBaseAddress;	
 		BMS_STATUS_1 stat1;
 		stat1.packamps = (int16_t)(cab300->getAmps()/10);
-		stat1.packvolts = (uint16_t)(adc->getPackVoltage() * 100);
+		stat1.packvolts = (uint16_t)(adc->getPackVoltage() * 100);		
 		uint8_t soc = (255 * settings.currentPackAH) / settings.maxPackAH;
 		stat1.soc = soc;
 		stat1.status = status;
