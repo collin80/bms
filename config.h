@@ -103,17 +103,19 @@ struct EEPROMSettings {
 	uint16_t valid; //stores a validity token to make sure EEPROM is not corrupt
 };
 
-//bitfield definitions for the status byte of the below frame data definition
-enum BMS_BITFIELD
+union STATUS
 {
-	LOWV = 1, //one or more quadrants are too low in voltage
-	HIGHV = 2, //one or more quadrants are too high in voltage
-	LOWT = 4, //one or more quads are too cold
-	HIGHT = 8, //one or more quads are too hot
-	IMBALANCE = 16, //quadrants are out of balance.
-	DISCHARGE_OK = 32, //it is allowable to discharge the battery
-	CHARGE_OK = 64, //it is allowable to charge the battery
-	FAULT = 128 //something is wrong with the BMS
+	uint8_t value;
+	struct {
+		uint8_t LOWV : 1;
+		uint8_t HIGHV : 1;
+		uint8_t LOWT : 1;
+		uint8_t HIGHT : 1;
+		uint8_t IMBALANCE : 1;
+		uint8_t DISCHARGE_OK : 1;
+		uint8_t CHARGE_OK : 1;
+		uint8_t FAULT : 1;
+	};
 };
 
 //general status - broadcast at base address
@@ -125,7 +127,7 @@ union BMS_STATUS_1
 		uint16_t packvolts; //stored in hundredths of a volt so 40000 = 400volts. Top voltage is thus 655 volts
 		int16_t packamps; //stored in hundredths of an amp so 4000 = 40 amps out. -4000 would be 40 amps in
 		uint8_t soc; //state of charge scaled to the full 0 to 255.
-		uint8_t status; //bitfield that conforms to BMS_BITFIELD enum above
+		STATUS status; //bitfield that conforms to BMS_BITFIELD enum above
 	};
 };
 

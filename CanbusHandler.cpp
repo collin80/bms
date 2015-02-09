@@ -27,6 +27,7 @@
 
 CANBusHandler *CANBusHandler::instance = NULL;
 extern EEPROMSettings settings;
+extern STATUS status;
 volatile bool DoStatus1 = false;
 volatile bool DoStatus2 = false;
 volatile bool DoStatus3 = false;
@@ -109,6 +110,9 @@ void CANBusHandler::loop()
 		BMS_STATUS_1 stat1;
 		stat1.packamps = (int16_t)(cab300->getAmps()/10);
 		stat1.packvolts = (uint16_t)(adc->getPackVoltage() * 100);
+		uint8_t soc = (255 * settings.currentPackAH) / settings.maxPackAH;
+		stat1.soc = soc;
+		stat1.status = status;
 		frame.data.value = stat1.value;
 		Can0.sendFrame(frame);
 	}

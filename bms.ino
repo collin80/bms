@@ -38,6 +38,7 @@ This is the golden combo.
 #include "CanbusHandler.h"
 
 EEPROMSettings settings;
+STATUS status;
 SerialConsole	console;
 CANBusHandler *cbHandler;
 ADCClass *adc;

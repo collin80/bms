@@ -32,6 +32,7 @@ const uint8_t VBat[4][2] = {
 						   };
 
 extern EEPROMSettings settings;
+extern STATUS status;
 
 ADCClass* ADCClass::instance = NULL;
 volatile bool doADC = false;
@@ -183,22 +184,66 @@ void ADCClass::handleTick()
 	//constrain these back to valid range 0-3	
 	tNum &= 3;
 
-	int16_t vHigh = -10000, vLow = 30000;		
+	float vHigh = -10000.0f, vLow = 30000.0f, thisVolt;		
+	int thisMilliVolt;
+	int thisTemperature;
+
+	//default to being OK and set them off if necessary.
+	status.CHARGE_OK = 1;
+	status.DISCHARGE_OK = 1;
+	status.LOWV = 0;
+	status.LOWT = 0;
+	status.HIGHT = 0;
+	status.HIGHV = 0;
+
 	if (vNum == 4)
 	{	
 		vNum = 0;
 		for (int y = 0; y < 4; y++) 
 		{	
-			if (vAccum[y] > vHigh) vHigh = vAccum[y];
-			if (vAccum[y] < vLow) vLow = vAccum[y];
+			thisVolt = getVoltage(y);
+			thisMilliVolt = (int)(thisVolt * 1000);
+			thisTemperature = (int)(getTemperature(y) * 10);
+			if (thisVolt > vHigh) vHigh = thisVolt;
+			if (thisVolt < vLow) vLow = thisVolt;
+
+			if (thisMilliVolt > settings.highThreshold) 
+			{
+				status.HIGHV = 1;
+				status.CHARGE_OK = 0;
+			}
+			
+			if (thisMilliVolt < settings.lowThreshold) 
+			{
+				status.LOWV = 1;
+				status.DISCHARGE_OK = 0;
+			}
+			
+			if (thisTemperature > settings.highTempThresh) 
+			{
+				status.HIGHT = 1;
+				status.DISCHARGE_OK = 0;
+				status.CHARGE_OK = 0;
+			}
+
+			if (thisTemperature < settings.lowTempThresh) 
+			{
+				status.LOWT = 1;
+				status.DISCHARGE_OK = 0;
+				status.CHARGE_OK = 0;
+			}
 		}
 	
 		//Now, if the difference between vLow and vHigh is too high then there is a serious pack balancing problem
 		//and we should let someone know
-		if (vHigh - vLow > settings.balanceThreshold)
+		if ((int)((vHigh - vLow) * 1000) > settings.balanceThreshold)
 		{
 			Logger::debug("Pack voltage imbalance!");
+			status.IMBALANCE = 1;
+			status.CHARGE_OK = 0; //not OK to charge if pack is out of wack
+			status.DISCHARGE_OK = 0; //also not OK to discharge
 		}
+		else status.IMBALANCE = 0;
 	}
 
 	Logger::debug("V1: %f V2: %f V3: %f V4: %f", getVoltage(0), getVoltage(1), getVoltage(2), getVoltage(3));
