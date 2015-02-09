@@ -35,14 +35,14 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define VIN_ADDR		0x48 // ADS1110-A0 the device address is 0x48  Voltage input
 #define THERM_ADDR		0x4A // ADS1110-A2 the device address is 0x4A  Thermistor input
 
-#define SWITCH_VBAT1_H	X10
-#define SWITCH_VBAT2_L	X11
+#define SWITCH_VBAT1_H	X11
+#define SWITCH_VBAT2_L	X10
 #define SWITCH_VBAT2_H	X9
 #define SWITCH_VBAT3_L	X12
 #define SWITCH_VBAT3_H	X13
 #define SWITCH_VBAT4_L	X14
-#define SWITCH_VBAT4_H	X15
-#define SWITCH_VBATRTN	X16
+#define SWITCH_VBAT4_H	X16
+#define SWITCH_VBATRTN	X15
 #define SWITCH_THERM1	X17
 #define SWITCH_THERM2	X18
 #define SWITCH_THERM3	X19

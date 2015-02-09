@@ -181,6 +181,7 @@ void SerialConsole::appendCmd(String cmd)
 	{
 		cmdBuffer[x] = tempStr[x];
 	}
+	cmdBuffer[ptrBuffer] = 0;
 }
 
 void SerialConsole::handleConsoleCmd() {
@@ -232,19 +233,19 @@ void SerialConsole::handleConsoleCmd() {
 		handleConfigCmd();
 		break;
 	case STATE_GET_QUAD1:
-		appendCmd("QCELLS1=");
+		appendCmd("Q1CELLS=");
 		handleConfigCmd();
 		break;
 	case STATE_GET_QUAD2:
-		appendCmd("QCELLS2=");
+		appendCmd("Q2CELLS=");
 		handleConfigCmd();
 		break;
 	case STATE_GET_QUAD3:
-		appendCmd("QCELLS3=");
+		appendCmd("Q3CELLS=");
 		handleConfigCmd();
 		break;
 	case STATE_GET_QUAD4:
-		appendCmd("QCELLS4=");
+		appendCmd("Q4CELLS=");
 		handleConfigCmd();
 		break;
 	case STATE_GET_MAXAH:

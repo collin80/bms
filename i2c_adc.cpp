@@ -142,7 +142,15 @@ bool ADCClass::adsGetData(byte addr, int16_t &value)
 //Or, the pack is fully characterized three times per second. Not too shabby!
 void ADCClass::handleTick()
 {
+	//these track which reading we are about to request
 	static byte vNum, tNum; //which voltage and thermistor reading we're on
+	
+	//these track the proper place to save in. It is one before vNum and tNum
+	byte vSave, tSave;
+
+	//avoid negative numbers
+	vSave = (vNum + 3) % 4;
+	tSave = (tNum + 3) % 4;
 
 	int16_t readValue;
 
@@ -152,26 +160,26 @@ void ADCClass::handleTick()
 	//if there is a problem we won't update the values stored
 	if (adsGetData(VIN_ADDR, readValue)) 
 	{
-		vReading[vNum][vReadingPos] = readValue;
+		vReading[vSave][vReadingPos] = readValue;
 		vReadingPos = (vReadingPos + 1) & (SAMPLES-1);
-		vAccum[vNum] = 0;
+		vAccum[vSave] = 0;
 		for (x = 0; x < SAMPLES; x++)
 		{
-			vAccum[vNum] += vReading[vNum][x];
+			vAccum[vSave] += vReading[vSave][x];
 		}
-		vAccum[vNum] /= SAMPLES;
+		vAccum[vSave] /= SAMPLES;
 	}
 
 	if (adsGetData(THERM_ADDR, readValue)) 
 	{
-		tReading[tNum][tReadingPos] = readValue;	
+		tReading[tSave][tReadingPos] = readValue;	
 		tReadingPos = (tReadingPos + 1) & (SAMPLES-1);
-		tAccum[tNum] = 0;
+		tAccum[tSave] = 0;
 		for (x = 0; x < SAMPLES; x++)
 		{
-			tAccum[tNum] += tReading[tNum][x];
+			tAccum[tSave] += tReading[tSave][x];
 		}
-		tAccum[tNum] /= SAMPLES;
+		tAccum[tSave] /= SAMPLES;
 
 	}
 
@@ -270,7 +278,7 @@ float ADCClass::getVoltage(int which)
 {
 	if (which < 0) return 0.0f;
 	if (which > 3) return 0.0f;
-	return (vAccum[3 - which] * settings.vMultiplier[3 - which]);
+	return (vAccum[which] * settings.vMultiplier[which]);
 }
 
 float ADCClass::getPackVoltage()
