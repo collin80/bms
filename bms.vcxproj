@@ -79,6 +79,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cab300.h" />
+    <ClInclude Include="CanbusHandler.h" />
     <ClInclude Include="i2c_adc.h">
       <FileType>CppCode</FileType>
     </ClInclude>
@@ -92,6 +93,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="cab300.cpp" />
+    <ClCompile Include="CanbusHandler.cpp" />
     <ClCompile Include="i2c_adc.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="SamNonDuePin.cpp" />

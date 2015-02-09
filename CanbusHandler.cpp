@@ -99,16 +99,41 @@ void CANBusHandler::gotFrame(CAN_FRAME *frame)
 
 void CANBusHandler::loop()
 {
+	CAN_FRAME frame;
+	frame.length = 8;
+
 	if (DoStatus1)
 	{
 		DoStatus1 = false;
+		frame.id = settings.bmsBaseAddress;	
+		BMS_STATUS_1 stat1;
+		stat1.packamps = (int16_t)(cab300->getAmps()/10);
+		stat1.packvolts = (uint16_t)(adc->getPackVoltage() * 100);
+		frame.data.value = stat1.value;
+		Can0.sendFrame(frame);
 	}
 	if (DoStatus2)
 	{
 		DoStatus2 = false;
+		frame.id = settings.bmsBaseAddress + 1;
+		BMS_STATUS_2 stat2;
+		stat2.quad1 = (uint16_t)(adc->getVoltage(0) * 100);
+		stat2.quad2 = (uint16_t)(adc->getVoltage(1) * 100);
+		stat2.quad3 = (uint16_t)(adc->getVoltage(2) * 100);
+		stat2.quad4 = (uint16_t)(adc->getVoltage(3) * 100);
+		frame.data.value = stat2.value;
+		Can0.sendFrame(frame);
 	}
 	if (DoStatus3)
 	{
 		DoStatus3 = false;
+		frame.id = settings.bmsBaseAddress + 2;
+		BMS_STATUS_3 stat3;
+		stat3.quad1 = (int16_t)(adc->getTemperature(0) * 10);
+		stat3.quad2 = (int16_t)(adc->getTemperature(1) * 10);
+		stat3.quad3 = (int16_t)(adc->getTemperature(2) * 10);
+		stat3.quad4 = (int16_t)(adc->getTemperature(3) * 10);
+		frame.data.value = stat3.value;
+		Can0.sendFrame(frame);
 	}
 }

@@ -117,30 +117,40 @@ enum BMS_BITFIELD
 };
 
 //general status - broadcast at base address
-struct BMS_STATUS_1
+
+union BMS_STATUS_1
 {
-	uint16_t packvolts; //stored in hundredths of a volt so 40000 = 400volts. Top voltage is thus 655 volts
-	int16_t packamps; //stored in hundredths of an amp so 4000 = 40 amps out. -4000 would be 40 amps in
-	uint8_t soc; //state of charge scaled to the full 0 to 255.
-	uint8_t status; //bitfield that conforms to BMS_BITFIELD enum above
+	uint64_t value;
+	struct {
+		uint16_t packvolts; //stored in hundredths of a volt so 40000 = 400volts. Top voltage is thus 655 volts
+		int16_t packamps; //stored in hundredths of an amp so 4000 = 40 amps out. -4000 would be 40 amps in
+		uint8_t soc; //state of charge scaled to the full 0 to 255.
+		uint8_t status; //bitfield that conforms to BMS_BITFIELD enum above
+	};
 };
 
 //voltage of each quad - broadcast at base address + 1
-struct BMS_STATUS_2
+union BMS_STATUS_2
 {
-	uint16_t quad1; //voltage of first quadrant in hundredths of a volt
-	uint16_t quad2; //second quad
-	uint16_t quad3; //third
-	uint16_t quad4; //fourth
+	uint64_t value;
+	struct {
+		uint16_t quad1; //voltage of first quadrant in hundredths of a volt
+		uint16_t quad2; //second quad
+		uint16_t quad3; //third
+		uint16_t quad4; //fourth
+	};
 };
 
 //temperature of each quad - broadcast at base address + 2
-struct BMS_STATUS_3
+union BMS_STATUS_3
 {
-	int16_t quad1; //temperature of first quadrant in tenths of a degree centigrade (250 = 25.0 degrees)
-	int16_t quad2; //second quad
-	int16_t quad3; //third
-	int16_t quad4; //fourth
+	uint64_t value;
+	struct {
+		int16_t quad1; //temperature of first quadrant in tenths of a degree centigrade (250 = 25.0 degrees)
+		int16_t quad2; //second quad
+		int16_t quad3; //third
+		int16_t quad4; //fourth
+	};
 };
 
 

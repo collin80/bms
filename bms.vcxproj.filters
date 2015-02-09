@@ -39,6 +39,9 @@
     <ClInclude Include="cab300.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CanbusHandler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SamNonDuePin.cpp">
@@ -54,6 +57,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="cab300.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CanbusHandler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

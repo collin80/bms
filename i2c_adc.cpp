@@ -228,6 +228,13 @@ float ADCClass::getVoltage(int which)
 	return (vAccum[3 - which] * settings.vMultiplier[3 - which]);
 }
 
+float ADCClass::getPackVoltage()
+{
+	float accum = 0.0f;
+	for (int x = 0; x < 4; x++) accum += getVoltage(x);
+	return accum;
+}
+
 float ADCClass::getTemperature(int which)
 {
 	if (which < 0) return 0.0f;

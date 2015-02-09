@@ -106,8 +106,7 @@ void setup()
   setupHardware();
 
   adc = ADCClass::getInstance();
-  adc->setup();
-
+  if (!needInitialConfig) adc->setup();
 }
 
 void loop()
@@ -121,7 +120,8 @@ void loop()
 			if (!needInitialConfig)
 				console.printMenu();			
 			else
-				console.InitialConfig();
+				console.InitialConfig(); //Locks out the sketch for a while
+				adc->setup(); //this was deferred but now must be done.
 		}
 	}
 	if (SerialUSB.available()) 
