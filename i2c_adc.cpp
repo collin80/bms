@@ -138,12 +138,16 @@ bool ADCClass::adsGetData(byte addr, int16_t &value)
 
 //periodic tick that handles reading ADCs and doing other stuff that happens on a schedule.
 //There are four voltage readings and four thermistor readings and they are on separate
-//ads chips so each can be read every cycle which means it takes exactly 320ms to read the whole pack
-//Or, the pack is fully characterized three times per second. Not too shabby!
+//ads chips. We need to allow readings to settle so this code runs a flipflop where
+//every other cycle we either
+//1. Read the value from the last reading and switch the input
+//2. Ask for a conversion to happen.
+//This allows things to settle for one tick time before we start the conversion.
 void ADCClass::handleTick()
 {
 	//these track which reading we are about to request
 	static byte vNum, tNum; //which voltage and thermistor reading we're on
+	static bool flipFlop;
 	
 	//these track the proper place to save in. It is one before vNum and tNum
 	byte vSave, tSave;
@@ -157,107 +161,112 @@ void ADCClass::handleTick()
 	int16_t readValue;
 
 	int x;
-	
-	//read the values from the previous cycle
-	//if there is a problem we won't update the values stored
-	if (adsGetData(VIN_ADDR, readValue)) 
+	if (!flipFlop) 
 	{
-		vReading[vSave][vReadingPos] = readValue;
-		vReadingPos = (vReadingPos + 1) & (SAMPLES-1);		
-		vTemp = 0;
-		for (x = 0; x < SAMPLES; x++)
+		//read the values from the previous cycle
+		//if there is a problem we won't update the values stored
+		if (adsGetData(VIN_ADDR, readValue)) 
 		{
-			vTemp += vReading[vSave][x];
+			vReading[vSave][vReadingPos] = readValue;
+			vReadingPos = (vReadingPos + 1) & (SAMPLES-1);		
+			vTemp = 0;
+			for (x = 0; x < SAMPLES; x++)
+			{
+				vTemp += vReading[vSave][x];
+			}
+			vTemp /= SAMPLES;
+			vAccum[vSave] = vTemp;
 		}
-		vTemp /= SAMPLES;
-		vAccum[vSave] = vTemp;
-	}
 
-	if (adsGetData(THERM_ADDR, readValue)) 
-	{
-		tReading[tSave][tReadingPos] = readValue;	
-		tReadingPos = (tReadingPos + 1) & (SAMPLES-1);
-		tTemp = 0;
-		for (x = 0; x < SAMPLES; x++)
+		if (adsGetData(THERM_ADDR, readValue)) 
 		{
-			tTemp += tReading[tSave][x];
+			Logger::debug("TL: %i", readValue);
+			tReading[tSave][tReadingPos] = readValue;	
+			tReadingPos = (tReadingPos + 1) & (SAMPLES-1);
+			tTemp = 0;
+			for (x = 0; x < SAMPLES; x++)
+			{
+				tTemp += tReading[tSave][x];
+			}
+			tTemp /= SAMPLES;
+			tAccum[tSave] = tTemp;
 		}
-		tTemp /= SAMPLES;
-		tAccum[tSave] = tTemp;
-	}
+		setVEnable(vNum++);
+		setThermActive(SWITCH_THERM1 + tNum++);
 
-	//Set up for the next set of readings
-	setVEnable(vNum++);
-	adsStartConversion(VIN_ADDR);
-	setThermActive(SWITCH_THERM1 + tNum++);
-	adsStartConversion(THERM_ADDR);
-	
-	//constrain these back to valid range 0-3	
-	tNum &= 3;
+		tNum &= 3;
+		float vHigh = -10000.0f, vLow = 30000.0f, thisVolt;		
+		int thisMilliVolt;
+		int thisTemperature;
 
-	float vHigh = -10000.0f, vLow = 30000.0f, thisVolt;		
-	int thisMilliVolt;
-	int thisTemperature;
+		//default to being OK and set them off if necessary.
+		status.CHARGE_OK = 1;
+		status.DISCHARGE_OK = 1;
+		status.LOWV = 0;
+		status.LOWT = 0;
+		status.HIGHT = 0;
+		status.HIGHV = 0;
 
-	//default to being OK and set them off if necessary.
-	status.CHARGE_OK = 1;
-	status.DISCHARGE_OK = 1;
-	status.LOWV = 0;
-	status.LOWT = 0;
-	status.HIGHT = 0;
-	status.HIGHV = 0;
-
-	if (vNum == 4)
-	{	
-		vNum = 0;
-		for (int y = 0; y < 4; y++) 
+		if (vNum == 4)
 		{	
-			thisVolt = getVoltage(y);
-			thisMilliVolt = (int)(thisVolt * 1000);
-			thisTemperature = (int)(getTemperature(y) * 10);
-			if (thisVolt > vHigh) vHigh = thisVolt;
-			if (thisVolt < vLow) vLow = thisVolt;
+			vNum = 0;
+			for (int y = 0; y < 4; y++) 
+			{	
+				thisVolt = getVoltage(y);
+				thisMilliVolt = (int)(thisVolt * 1000);
+				thisTemperature = (int)(getTemperature(y) * 10);
+				if (thisVolt > vHigh) vHigh = thisVolt;
+				if (thisVolt < vLow) vLow = thisVolt;
 
-			if (thisMilliVolt > settings.highThreshold) 
-			{
-				status.HIGHV = 1;
-				status.CHARGE_OK = 0;
-			}
+				if (thisMilliVolt > settings.highThreshold) 
+				{
+					status.HIGHV = 1;
+					status.CHARGE_OK = 0;
+				}
 			
-			if (thisMilliVolt < settings.lowThreshold) 
-			{
-				status.LOWV = 1;
-				status.DISCHARGE_OK = 0;
-			}
+				if (thisMilliVolt < settings.lowThreshold) 
+				{
+					status.LOWV = 1;
+					status.DISCHARGE_OK = 0;
+				}
 			
-			if (thisTemperature > settings.highTempThresh) 
-			{
-				status.HIGHT = 1;
-				status.DISCHARGE_OK = 0;
-				status.CHARGE_OK = 0;
-			}
+				if (thisTemperature > settings.highTempThresh) 
+				{
+					status.HIGHT = 1;
+					status.DISCHARGE_OK = 0;
+					status.CHARGE_OK = 0;
+				}
 
-			if (thisTemperature < settings.lowTempThresh) 
-			{
-				status.LOWT = 1;
-				status.DISCHARGE_OK = 0;
-				status.CHARGE_OK = 0;
+				if (thisTemperature < settings.lowTempThresh) 
+				{
+					status.LOWT = 1;
+					status.DISCHARGE_OK = 0;
+					status.CHARGE_OK = 0;
+				}
 			}
-		}
 	
-		//Now, if the difference between vLow and vHigh is too high then there is a serious pack balancing problem
-		//and we should let someone know
-		if ((int)((vHigh - vLow) * 1000) > settings.balanceThreshold)
-		{
-			Logger::debug("Pack voltage imbalance!");
-			status.IMBALANCE = 1;
-			status.CHARGE_OK = 0; //not OK to charge if pack is out of wack
-			status.DISCHARGE_OK = 0; //also not OK to discharge
+			//Now, if the difference between vLow and vHigh is too high then there is a serious pack balancing problem
+			//and we should let someone know
+			if ((int)((vHigh - vLow) * 1000) > settings.balanceThreshold)
+			{
+				Logger::debug("Pack voltage imbalance!");
+				status.IMBALANCE = 1;
+				status.CHARGE_OK = 0; //not OK to charge if pack is out of wack
+				status.DISCHARGE_OK = 0; //also not OK to discharge
+			}
+			else status.IMBALANCE = 0;
 		}
-		else status.IMBALANCE = 0;
+
+		Logger::debug("V1: %f V2: %f V3: %f V4: %f", getVoltage(0), getVoltage(1), getVoltage(2), getVoltage(3));
+		Logger::debug("T1: %f T2: %f T3: %f T4: %f", getTemperature(0), getTemperature(1), getTemperature(2), getTemperature(3));
+	}
+	else
+	{
+		adsStartConversion(VIN_ADDR);	
+		adsStartConversion(THERM_ADDR);
 	}
 
-	Logger::debug("V1: %f V2: %f V3: %f V4: %f", getVoltage(0), getVoltage(1), getVoltage(2), getVoltage(3));
+	flipFlop = !flipFlop;
 }
 
 int ADCClass::getRawV(int which)
