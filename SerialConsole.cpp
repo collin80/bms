@@ -58,9 +58,9 @@ void SerialConsole::vCalibrate()
 		SerialUSB.print("Reported voltage of subpack ");
 		SerialUSB.print(subpack);
 		SerialUSB.print(": ");
-		SerialUSB.println(oldV);
-		String input = SerialUSB.readString();
+		SerialUSB.println(oldV);		
 		SerialUSB.print("Enter measured voltage: ");
+		String input = SerialUSB.readString();
 		newV = atof((char *)input.c_str());
 		scale = newV / oldV;
 		settings.vMultiplier[subpack - 1] *= scale;

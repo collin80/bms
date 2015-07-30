@@ -112,9 +112,9 @@ void setup()
 
 void loop()
 {
-	if (SerialUSB)
+	if (firstConnect)	
 	{
-		if (firstConnect)
+		if (SerialUSB)
 		{
 			firstConnect = false;
 

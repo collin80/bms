@@ -143,8 +143,20 @@ union BMS_STATUS_2
 	};
 };
 
-//temperature of each quad - broadcast at base address + 2
 union BMS_STATUS_3
+{
+	uint64_t value;
+	struct
+	{
+		uint16_t quad1; //average volts of cells in this quadrant in thousandths of a volt
+		uint16_t quad2; //second quad
+		uint16_t quad3; //third
+		uint16_t quad4; //fourth
+	};
+};
+
+//temperature of each quad - broadcast at base address + 2
+union BMS_STATUS_4
 {
 	uint64_t value;
 	struct {

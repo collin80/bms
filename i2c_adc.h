@@ -48,6 +48,7 @@ public:
 	int getRawV(int which);
 	int getRawT(int which);
 	float getVoltage(int which);
+	float getCellAvgVoltage(int which);
 	float getPackVoltage();
 	float getTemperature(int which);
 	void loop();

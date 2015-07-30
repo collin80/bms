@@ -195,8 +195,8 @@ void ADCClass::handleTick()
 		setThermActive(SWITCH_THERM1 + tNum++);
 
 		tNum &= 3;
-		float vHigh = -10000.0f, vLow = 30000.0f, thisVolt;		
-		int thisMilliVolt;
+		float vHigh = -10000.0f, vLow = 30000.0f, quadVolt, perVolt;		
+		int perMilliVolt;
 		int thisTemperature;
 
 		//default to being OK and set them off if necessary.
@@ -212,19 +212,20 @@ void ADCClass::handleTick()
 			vNum = 0;
 			for (int y = 0; y < 4; y++) 
 			{	
-				thisVolt = getVoltage(y);
-				thisMilliVolt = (int)(thisVolt * 1000);
+				quadVolt = getVoltage(y);				
+				perVolt = quadVolt / (float)settings.numQuadCells[y];
+				perMilliVolt = (int)(quadVolt * 1000);
 				thisTemperature = (int)(getTemperature(y) * 10);
-				if (thisVolt > vHigh) vHigh = thisVolt;
-				if (thisVolt < vLow) vLow = thisVolt;
+				if (perVolt > vHigh) vHigh = perVolt;
+				if (perVolt < vLow) vLow = perVolt;
 
-				if (thisMilliVolt > settings.highThreshold) 
+				if (perMilliVolt > settings.highThreshold) 
 				{
 					status.HIGHV = 1;
 					status.CHARGE_OK = 0;
 				}
 			
-				if (thisMilliVolt < settings.lowThreshold) 
+				if (perMilliVolt < settings.lowThreshold) 
 				{
 					status.LOWV = 1;
 					status.DISCHARGE_OK = 0;
@@ -290,6 +291,13 @@ float ADCClass::getVoltage(int which)
 	return (vAccum[which] * settings.vMultiplier[which]);
 }
 
+float ADCClass::getCellAvgVoltage(int which)
+{
+	if (which < 0) return 0.0f;
+	if (which > 3) return 0.0f;
+	return (vAccum[which] * settings.vMultiplier[which] / (float)settings.numQuadCells[which]);
+}
+
 float ADCClass::getPackVoltage()
 {
 	float accum = 0.0f;
@@ -308,8 +316,14 @@ float ADCClass::getTemperature(int which)
 	//It isn't strictly necessary to have an ADC to Volts multiplier. The A,B,C coefficients could have accommodated this
 	//but then they'd be really, really tiny values and that's asking for trouble with floating point
 	//that is - trying to multiply very large values against very small - It's a bad idea.
-	float x = tAccum[which] * settings.tMultiplier[which].adcToVolts; 
-	float y = ((x * x * x) * settings.tMultiplier[which].A) + ((x * x) * settings.tMultiplier[which].B) + (x * settings.tMultiplier[which].C) + settings.tMultiplier[which].D;	
+	float x = tAccum[which] * settings.tMultiplier[which].adcToVolts;
+	//done in stages to minimize the # of float multiplications to do
+	float y = settings.tMultiplier[which].D;
+	y += (x * settings.tMultiplier[which].C);
+	x *= x; //now x = x^2
+	y += (x * settings.tMultiplier[which].B);
+	x *= x; //now x = x^3
+	y += (x * settings.tMultiplier[which].A);
 	return (y);
 }
 
