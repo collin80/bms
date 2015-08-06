@@ -180,7 +180,7 @@ void ADCClass::handleTick()
 
 		if (adsGetData(THERM_ADDR, readValue)) 
 		{
-			Logger::debug("TL: %i", readValue);
+			//Logger::debug("TL: %i", readValue);
 			tReading[tSave][tReadingPos] = readValue;	
 			tReadingPos = (tReadingPos + 1) & (SAMPLES-1);
 			tTemp = 0;
@@ -258,7 +258,10 @@ void ADCClass::handleTick()
 		}
 
 		Logger::debug("V1: %f V2: %f V3: %f V4: %f", getVoltage(0), getVoltage(1), getVoltage(2), getVoltage(3));
+		Logger::debug("AV1: %f AV2: %f AV3: %f AV4: %f", getVoltage(0) / 24.0f, getVoltage(1) / 26.0f, getVoltage(2) / 24.0f, getVoltage(3) / 26.0f);
+		Logger::debug("Total system voltage: %f", getVoltage(0)+ getVoltage(1)+ getVoltage(2)+ getVoltage(3));
 		Logger::debug("T1: %f T2: %f T3: %f T4: %f", getTemperature(0), getTemperature(1), getTemperature(2), getTemperature(3));
+		Logger::debug(" ");
 	}
 	else
 	{

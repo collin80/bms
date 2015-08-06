@@ -42,6 +42,7 @@ STATUS status;
 SerialConsole	console;
 CANBusHandler *cbHandler;
 ADCClass *adc;
+uint32_t lastWrite;
 
 bool firstConnect = true;
 bool needInitialConfig = false;
@@ -88,6 +89,13 @@ void loadEEPROM()
 	}
 }
 
+void saveEEPROM()
+{
+	EEPROM.write(0, settings);
+	lastWrite = millis();
+	SerialUSB.println("Write!");
+}
+
 void setupHardware()
 {
 	loadEEPROM();
@@ -103,6 +111,8 @@ void setup()
 {
   Wire.begin(); // wake up I2C bus
   SerialUSB.begin(115200);
+
+  lastWrite = millis() + 2000;
 
   setupHardware();
 
@@ -131,4 +141,6 @@ void loop()
 	}
 	adc->loop();
 	cbHandler->loop();
+
+	if ((lastWrite + 20000) > millis()) saveEEPROM(); //every 20 seconds
 }
