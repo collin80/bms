@@ -168,7 +168,7 @@ void ADCClass::handleTick()
 		if (adsGetData(VIN_ADDR, readValue)) 
 		{
 			vReading[vSave][vReadingPos] = readValue;
-			vReadingPos = (vReadingPos + 1) & (SAMPLES-1);		
+			vReadingPos = (vReadingPos + 1) % SAMPLES;		
 			vTemp = 0;
 			for (x = 0; x < SAMPLES; x++)
 			{
@@ -180,9 +180,9 @@ void ADCClass::handleTick()
 
 		if (adsGetData(THERM_ADDR, readValue)) 
 		{
-			Logger::debug("TL: %i", readValue);
+			//Logger::debug("TL: %i", readValue);
 			tReading[tSave][tReadingPos] = readValue;	
-			tReadingPos = (tReadingPos + 1) & (SAMPLES-1);
+			tReadingPos = (tReadingPos + 1) % SAMPLES;
 			tTemp = 0;
 			for (x = 0; x < SAMPLES; x++)
 			{

@@ -100,11 +100,20 @@ void CANBusHandler::setup()
 void CANBusHandler::gotFrame(CAN_FRAME *frame)
 {
 	if (cab300) cab300->processFrame(*frame);
+
+	if (frame->id == (settings.bmsBaseAddress - 0x10)) //BMS control packet
+	{
+		if (frame->data.byte[0] == 0x10) //reset SOC to 100% externally
+		{
+			settings.currentPackAH = settings.maxPackAH;
+		}
+	}
 }
 
 void CANBusHandler::loop()
 {
 	CAN_FRAME frame;
+	uint32_t currAH, maxAH, calcAH;
 	frame.length = 8;
 	if (settings.bmsBaseAddress < 0x7E0) frame.extended = false;
 	else frame.extended = true;
@@ -117,7 +126,14 @@ void CANBusHandler::loop()
 		BMS_STATUS_1 stat1;
 		stat1.packamps = (int16_t)(cab300->getAmps()/10);
 		stat1.packvolts = (uint16_t)(adc->getPackVoltage() * 100);		
-		uint8_t soc = (255 * settings.currentPackAH) / settings.maxPackAH;
+
+		//Done this way to avoid overflow issues
+		currAH = settings.currentPackAH / 10000;
+		maxAH = settings.maxPackAH / 10000;
+		calcAH = 255 * currAH;
+		calcAH = calcAH / maxAH;
+		uint8_t soc = (uint8_t)calcAH;
+
 		stat1.soc = soc;
 		stat1.status = status;
 		frame.data.value = stat1.value;
