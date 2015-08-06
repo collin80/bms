@@ -31,6 +31,7 @@ extern STATUS status;
 volatile bool DoStatus1 = false;
 volatile bool DoStatus2 = false;
 volatile bool DoStatus3 = false;
+volatile bool DoStatus4 = false;
 volatile uint8_t intCounter = 0;
 
 //the status 1 message is sent every 100ms, the others are sent every 500ms
@@ -42,6 +43,7 @@ void tickBounce()
 	{
 		DoStatus2 = true;
 		DoStatus3 = true;
+		DoStatus4 = true;
 		intCounter = 0;
 	}
 }
@@ -98,11 +100,20 @@ void CANBusHandler::setup()
 void CANBusHandler::gotFrame(CAN_FRAME *frame)
 {
 	if (cab300) cab300->processFrame(*frame);
+
+	if (frame->id == (settings.bmsBaseAddress - 0x10)) //BMS control packet
+	{
+		if (frame->data.byte[0] == 0x10) //reset SOC to 100% externally
+		{
+			settings.currentPackAH = settings.maxPackAH;
+		}
+	}
 }
 
 void CANBusHandler::loop()
 {
 	CAN_FRAME frame;
+	uint32_t currAH, maxAH, calcAH;
 	frame.length = 8;
 	if (settings.bmsBaseAddress < 0x7E0) frame.extended = false;
 	else frame.extended = true;
@@ -115,7 +126,14 @@ void CANBusHandler::loop()
 		BMS_STATUS_1 stat1;
 		stat1.packamps = (int16_t)(cab300->getAmps()/10);
 		stat1.packvolts = (uint16_t)(adc->getPackVoltage() * 100);		
-		uint8_t soc = (255 * settings.currentPackAH) / settings.maxPackAH;
+
+		//Done this way to avoid overflow issues
+		currAH = settings.currentPackAH / 10000;
+		maxAH = settings.maxPackAH / 10000;
+		calcAH = 255 * currAH;
+		calcAH = calcAH / maxAH;
+		uint8_t soc = (uint8_t)calcAH;
+
 		stat1.soc = soc;
 		stat1.status = status;
 		frame.data.value = stat1.value;
@@ -133,16 +151,30 @@ void CANBusHandler::loop()
 		frame.data.value = stat2.value;
 		Can0.sendFrame(frame);
 	}
+
 	if (DoStatus3)
 	{
 		DoStatus3 = false;
 		frame.id = settings.bmsBaseAddress + 2;
 		BMS_STATUS_3 stat3;
-		stat3.quad1 = (int16_t)(adc->getTemperature(0) * 10);
-		stat3.quad2 = (int16_t)(adc->getTemperature(1) * 10);
-		stat3.quad3 = (int16_t)(adc->getTemperature(2) * 10);
-		stat3.quad4 = (int16_t)(adc->getTemperature(3) * 10);
+		stat3.quad1 = (uint16_t)(adc->getCellAvgVoltage(0) * 1000);
+		stat3.quad2 = (uint16_t)(adc->getCellAvgVoltage(1) * 1000);
+		stat3.quad3 = (uint16_t)(adc->getCellAvgVoltage(2) * 1000);
+		stat3.quad4 = (uint16_t)(adc->getCellAvgVoltage(3) * 1000);
 		frame.data.value = stat3.value;
+		Can0.sendFrame(frame);
+	}
+
+	if (DoStatus4)
+	{
+		DoStatus4 = false;
+		frame.id = settings.bmsBaseAddress + 3;
+		BMS_STATUS_4 stat4;
+		stat4.quad1 = (int16_t)(adc->getTemperature(0) * 10);
+		stat4.quad2 = (int16_t)(adc->getTemperature(1) * 10);
+		stat4.quad3 = (int16_t)(adc->getTemperature(2) * 10);
+		stat4.quad4 = (int16_t)(adc->getTemperature(3) * 10);
+		frame.data.value = stat4.value;
 		Can0.sendFrame(frame);
 	}
 }
