@@ -24,6 +24,9 @@
  */
 
 #include "CanbusHandler.h"
+#include "FirmwareReceiver.h"
+
+extern FirmwareReceiver *fwReceiver;
 
 CANBusHandler *CANBusHandler::instance = NULL;
 extern EEPROMSettings settings;
@@ -85,7 +88,8 @@ void CANBusHandler::setup()
 	Can0.begin(settings.CANSpeed, 255); //no enable pin
 	if (settings.cab300Address > 0) 
 	{
-		Can0.watchFor(settings.cab300Address); //allow through only this address for now
+		//Can0.watchFor(settings.cab300Address); //allow through only this address for now
+		Can0.watchFor();
 		cab300 = new CAB300();
 	}
  
@@ -108,6 +112,7 @@ void CANBusHandler::gotFrame(CAN_FRAME *frame)
 			settings.currentPackAH = settings.maxPackAH;
 		}
 	}
+	fwReceiver->gotFrame(frame);
 }
 
 void CANBusHandler::loop()

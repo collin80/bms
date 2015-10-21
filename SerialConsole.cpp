@@ -114,8 +114,8 @@ void SerialConsole::printMenu() {
 	Logger::console("Q4CELLS=%i - Set number of series cells in quadrant 4", settings.numQuadCells[3]);
 	SerialUSB.println();
 
-	Logger::console("MAXAH=%i - Set pack AH capacity (in tenths of an AH)", (settings.maxPackAH / 100000));
-	Logger::console("CURRAH=%i - Set current AH state of pack (tenths of AH)", (settings.currentPackAH / 100000));
+	Logger::console("MAXAH=%i - Set pack AH capacity (in tenths of an AH)", (settings.maxPackAH / 1000000));
+	Logger::console("CURRAH=%i - Set current AH state of pack (tenths of AH)", (settings.currentPackAH / 1000000));
 	SerialUSB.println();
 
 	Logger::console("VMULT1=%f - Set voltage multiplier for bank 1", settings.vMultiplier[0]);
@@ -406,7 +406,7 @@ void SerialConsole::handleConfigCmd() {
 		if (newValue > 0) 
 		{
 			Logger::console("Setting pack AH capacity to to %i", newValue);
-			settings.maxPackAH = newValue * 100000;
+			settings.maxPackAH = newValue * 1000000;
 			writeEEPROM = true;
 		}
 		else Logger::console("Invalid! Entered value must be positive!");
@@ -414,7 +414,7 @@ void SerialConsole::handleConfigCmd() {
 		if (newValue > 0) 
 		{
 			Logger::console("Setting pack AH capacity to to %i", newValue);
-			settings.currentPackAH = newValue * 100000;
+			settings.currentPackAH = newValue * 1000000;
 			writeEEPROM = true;
 		}
 		else Logger::console("Invalid! Entered value must be positive!");

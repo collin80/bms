@@ -33,6 +33,8 @@ This is the golden combo.
 #include <due_wire.h>
 #include <Wire_EEPROM.h>
 #include <DueTimer.h>
+#include <DueFlashStorage.h>
+#include <FirmwareReceiver.h>
 #include "config.h"
 #include "SerialConsole.h"
 #include "CanbusHandler.h"
@@ -42,7 +44,7 @@ STATUS status;
 SerialConsole	console;
 CANBusHandler *cbHandler;
 ADCClass *adc;
-uint32_t lastWrite;
+FirmwareReceiver *fwReceiver;
 
 bool firstConnect = true;
 bool needInitialConfig = false;
@@ -82,18 +84,10 @@ void loadEEPROM()
 	}
 
 	//do some sanity checks to see if things seem to be set up
-	if (settings.currentPackAH == 0 || settings.numQuadCells[0] == 0 ||
-		settings.maxPackAH == 0)
+	if (settings.numQuadCells[0] == 0 || settings.maxPackAH == 0)
 	{
 		needInitialConfig = true; 
 	}
-}
-
-void saveEEPROM()
-{
-	EEPROM.write(0, settings);
-	lastWrite = millis();
-	SerialUSB.println("Write!");
 }
 
 void setupHardware()
@@ -105,14 +99,14 @@ void setupHardware()
 
 	cbHandler = CANBusHandler::getInstance();
 	cbHandler->setup();
+
+	 fwReceiver = new FirmwareReceiver(&Can0, 0x1FDA4C36, 0x100);
 }
 
 void setup()
 {
   Wire.begin(); // wake up I2C bus
   SerialUSB.begin(115200);
-
-  lastWrite = millis() + 2000;
 
   setupHardware();
 
@@ -141,6 +135,4 @@ void loop()
 	}
 	adc->loop();
 	cbHandler->loop();
-
-	if ((lastWrite + 20000) > millis()) saveEEPROM(); //every 20 seconds
 }

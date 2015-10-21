@@ -31,7 +31,7 @@ extern EEPROMSettings settings;
 void CAB300::processFrame(CAN_FRAME &frame)
 {
 	static int32_t lastMillis;
-	uint32_t currentMillis = millis();
+	static uint32_t currentMillis;
 	if (frame.id == settings.cab300Address)
 	{
 		if (frame.data.byte[4] & 1) //ERROR!
@@ -65,22 +65,32 @@ void CAB300::processFrame(CAN_FRAME &frame)
 		else
 		{
 			int64_t tempCurr;
+			lastMillis = currentMillis;
+			if (lastMillis == 0) lastMillis = millis() - 1;
+			currentMillis = millis();
 			tempCurr = frame.data.byte[0] << 24;
 			tempCurr += frame.data.byte[1] << 16;
 			tempCurr += frame.data.byte[2] << 8;
 			tempCurr += frame.data.byte[3];
-			amperageReading = (int32_t)(tempCurr - 0x80000000);
+			tempCurr -= (int64_t)0x80000000;
+			amperageReading = (int32_t)(tempCurr);
 			float currentValue = amperageReading / 1000.0f;
 			Logger::debug("CAB300 - Current %f", currentValue);
+			Logger::debug("CAB300 - Curr AH %i", settings.currentPackAH);
 			if (lastMillis > 0)
 			{			
-			   //currentReading is in milliamps but currentPackAH is in tenths of a microamp so * 10,000 but our time interval
+			    //currentReading is in milliamps but currentPackAH is in tenths of a microamp so * 10,000 but our time interval
 				//is milliseconds and there are 3,600,000 ms per hour so together that's just / 360
 				//times the number of milliseconds elapsed.
 				//this is subtracted from the current number of AH left in the pack.
 				//Which means that negative current really does charge.
 
-				uint32_t deltaAH = (amperageReading * (currentMillis - lastMillis)) / 360;
+				int32_t deltaAH;
+				//if (amperageReading > 100) {
+					deltaAH = (amperageReading * (int32_t)(currentMillis - lastMillis)) / 360;
+				//}
+				//else deltaAH = 0;
+				//Logger::debug("CAB300 - ar: %l, cm: %d, lm: %d, delta = %l", amperageReading, currentMillis, lastMillis, deltaAH);
 
 				if (deltaAH <= settings.currentPackAH)
 				{
@@ -89,15 +99,14 @@ void CAB300::processFrame(CAN_FRAME &frame)
 				else 
 				{
 					settings.currentPackAH = 0;
-					Logger::error("PACK TOTALLY EMPTY! QUIT DISCHARGING DAMN IT!");
+					//Logger::error("PACK TOTALLY EMPTY! QUIT DISCHARGING DAMN IT!");
 				}
 				if (settings.currentPackAH > settings.maxPackAH) {
 					settings.currentPackAH = settings.maxPackAH; //cap at top of capacity
-					Logger::info("Pack is likely fully charged. Might want to stop charging");
+					//Logger::info("Pack is likely fully charged. Might want to stop charging");
 				}
 			   
-			}
-			lastMillis = currentMillis;
+			}			
 		}
 	}
 }
