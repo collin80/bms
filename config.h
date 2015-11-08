@@ -91,7 +91,7 @@ struct EEPROMSettings {
 	//Apparently first gen hardware actually has non-linearity for temp so handle specially.
 	//Each ADC channel has its own multipler because the hardware used could have some differences in resistance
 	float vMultiplier[4];
-	POLYNOMIAL tMultiplier[4];	
+	POLYNOMIAL tMultiplier[4];
 
 	uint8_t numQuadCells[4]; //number of series cells for each quadrant - allows for asymmetric quadrants
 
@@ -101,6 +101,10 @@ struct EEPROMSettings {
 	uint8_t logLevel; //Level of logging to output on serial line
 
 	uint16_t valid; //stores a validity token to make sure EEPROM is not corrupt
+
+	uint16_t chargingVoltage; //in tenths of a volt
+	uint16_t chargingAmperage; //in tenths of an amp
+	//should be 139 bytes in this struct
 };
 
 union STATUS

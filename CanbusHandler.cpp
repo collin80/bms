@@ -89,11 +89,15 @@ void CANBusHandler::setup()
 	if (settings.cab300Address > 0) 
 	{
 		//Can0.watchFor(settings.cab300Address); //allow through only this address for now
-		Can0.watchFor();
 		cab300 = new CAB300();
 	}
+
+	Can0.setRXFilter(0, 0, 0, true);
+	Can0.setRXFilter(1, 0, 0, false);
+
+	elcon = new ElconCharger();
  
-	Can0.setGeneralCallback(canbusRX);
+	//Can0.setGeneralCallback(canbusRX);
 
 	Timer5.attachInterrupt(tickBounce);
 	Timer5.start(100000); //100ms
@@ -113,16 +117,26 @@ void CANBusHandler::gotFrame(CAN_FRAME *frame)
 		}
 	}
 	fwReceiver->gotFrame(frame);
+	elcon->processFrame(*frame);
+
+	//Logger::debug("Got msg, id=%x", frame->id);
 }
 
 void CANBusHandler::loop()
 {
-	CAN_FRAME frame;
+	CAN_FRAME frame, inFrame;
 	uint32_t currAH, maxAH, calcAH;
 	frame.length = 8;
 	if (settings.bmsBaseAddress < 0x7E0) frame.extended = false;
 	else frame.extended = true;
 
+	//this is polling for canbus frames now. This as opposed to
+	//callback mode where things are processed in the interrupt handler
+	for (int i = 0; i < Can0.available(); i++)
+	{
+		Can0.read(inFrame);
+		gotFrame(&inFrame);
+	}
 
 	if (DoStatus1)
 	{

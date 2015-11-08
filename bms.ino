@@ -58,9 +58,9 @@ void loadEEPROM()
 		settings.balanceThreshold = 0x200; //512 mv
 		settings.currentPackAH  = 0;
 		settings.maxPackAH = 0; //there's no way to know...
-		settings.highTempThresh = 800; //80C - HOT!
+		settings.highTempThresh = 500; //50C - HOT!
 		settings.lowTempThresh = -50; //-5C - Chilly!
-		settings.highThreshold = 3850; //3.850 volts
+		settings.highThreshold = 3650; //3.650 volts
 		settings.lowThreshold = 2700; //2.700 volts		
 		
 		settings.bmsBaseAddress = 0x606;
@@ -116,6 +116,7 @@ void setup()
 
 void loop()
 {
+	static uint32_t lastStamp = 0;
 	if (firstConnect)	
 	{
 		if (SerialUSB)
@@ -135,4 +136,14 @@ void loop()
 	}
 	adc->loop();
 	cbHandler->loop();
+
+	if ((millis() - lastStamp) > 10000)
+	{
+		lastStamp = millis();
+		Logger::info("V0: %f V1: %f V2: %f V3: %f", adc->getVoltage(0), adc->getVoltage(1), adc->getVoltage(2), adc->getVoltage(3));
+		Logger::info("AV0: %f AV1: %f AV2: %f AV3: %f", adc->getCellAvgVoltage(0), 
+			adc->getCellAvgVoltage(1), adc->getCellAvgVoltage(2), adc->getCellAvgVoltage(3));
+		Logger::info("T0: %f T1: %f T2: %f T3: %f", adc->getTemperature(0), adc->getTemperature(1), adc->getTemperature(2), adc->getTemperature(3));
+		Logger::info(" ");
+	}
 }

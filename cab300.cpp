@@ -75,7 +75,7 @@ void CAB300::processFrame(CAN_FRAME &frame)
 			tempCurr -= (int64_t)0x80000000;
 			amperageReading = (int32_t)(tempCurr);
 			float currentValue = amperageReading / 1000.0f;
-			Logger::debug("CAB300 - Current %f", currentValue);
+			//Logger::debug("CAB300 - Current %f", currentValue);
 			Logger::debug("CAB300 - Curr AH %i", settings.currentPackAH);
 			if (lastMillis > 0)
 			{			
@@ -90,11 +90,13 @@ void CAB300::processFrame(CAN_FRAME &frame)
 					deltaAH = (amperageReading * (int32_t)(currentMillis - lastMillis)) / 360;
 				//}
 				//else deltaAH = 0;
-				//Logger::debug("CAB300 - ar: %l, cm: %d, lm: %d, delta = %l", amperageReading, currentMillis, lastMillis, deltaAH);
+				Logger::debug("CAB300 - ar: %l, delta = %l", amperageReading, deltaAH);
 
-				if (deltaAH <= settings.currentPackAH)
+				if ((deltaAH < 0) || (deltaAH <= settings.currentPackAH))
 				{
-					settings.currentPackAH -= deltaAH;
+					int32_t temp = settings.currentPackAH;
+					temp -= deltaAH;
+					settings.currentPackAH = temp;
 				}
 				else 
 				{

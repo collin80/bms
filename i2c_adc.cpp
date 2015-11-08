@@ -63,6 +63,7 @@ void ADCClass::setup()
 	pinModeNonDue(SWITCH_VBAT4_H, OUTPUT );
 	pinModeNonDue(SWITCH_VBATRTN, OUTPUT );
 	setAllVOff();
+	setVEnable(0);
 
 	//Thermistor inputs
 	pinModeNonDue(SWITCH_THERM1, OUTPUT );
@@ -70,6 +71,7 @@ void ADCClass::setup()
 	pinModeNonDue(SWITCH_THERM3, OUTPUT );
 	pinModeNonDue(SWITCH_THERM4, OUTPUT );
 	setAllThermOff();
+	setThermActive(SWITCH_THERM1);
 
 	Timer3.attachInterrupt(adcTickBounce);
 	Timer3.start(125000); //trigger every 125ms
@@ -79,21 +81,13 @@ void ADCClass::setup()
 void ADCClass::setAllVOff()
 {
   digitalWriteNonDue( SWITCH_VBAT1_H, LOW );
-  delayMicroseconds(20);
   digitalWriteNonDue( SWITCH_VBAT2_L, LOW );
-  delayMicroseconds(20);
   digitalWriteNonDue( SWITCH_VBAT2_H, LOW );
-  delayMicroseconds(20);
   digitalWriteNonDue( SWITCH_VBAT3_L, LOW );
-  delayMicroseconds(20);
   digitalWriteNonDue( SWITCH_VBAT3_H, LOW );
-  delayMicroseconds(20);
   digitalWriteNonDue( SWITCH_VBAT4_L, LOW );
-  delayMicroseconds(20);
   digitalWriteNonDue( SWITCH_VBAT4_H, LOW );
-  delayMicroseconds(20);
   digitalWriteNonDue( SWITCH_VBATRTN, LOW );
-  delayMicroseconds(20);
 }
 
 void ADCClass::setVEnable(uint8_t which)
@@ -101,21 +95,15 @@ void ADCClass::setVEnable(uint8_t which)
 	if (which > 3) return;
 	setAllVOff();
 	digitalWriteNonDue(VBat[which][0], HIGH);
-	delayMicroseconds(20);
 	digitalWriteNonDue(VBat[which][1], HIGH);
-	delayMicroseconds(20);
 }
 
 void ADCClass::setAllThermOff()
 {
   digitalWriteNonDue(SWITCH_THERM1, LOW );
-  delayMicroseconds(20);
   digitalWriteNonDue(SWITCH_THERM2, LOW);
-  delayMicroseconds(20);
   digitalWriteNonDue(SWITCH_THERM3, LOW );
-  delayMicroseconds(20);
   digitalWriteNonDue(SWITCH_THERM4, LOW );
-  delayMicroseconds(20);
 }
 
 void ADCClass::setThermActive(uint8_t which)
@@ -124,7 +112,6 @@ void ADCClass::setThermActive(uint8_t which)
 	if (which > SWITCH_THERM4) return;
 	setAllThermOff();
 	digitalWriteNonDue(which, HIGH );
-	delayMicroseconds(20);
 }
 
 //ask for a reading to start. Currently we support 15 reads per second so one must wait
@@ -151,85 +138,110 @@ bool ADCClass::adsGetData(byte addr, int16_t &value)
   return true;
 }
 
-//periodic tick that handles reading ADCs and doing other stuff that happens on a schedule.
-//There are four voltage readings and four thermistor readings and they are on separate
-//ads chips. We need to allow readings to settle so this code runs a flipflop where
-//every other cycle we either
-//1. Read the value from the last reading and switch the input
-//2. Ask for a conversion to happen.
-//This allows things to settle for one tick time before we start the conversion.
+/*
+  periodic tick that handles reading ADCs and doing other stuff that happens on a schedule.
+  There are four voltage readings and four thermistor readings and they are on separate
+  ads chips. What happens is a new source is selected and then a conversion is started. Later
+  on we read back the value. The code runs like this:
+  1. Start conversion for voltage
+  2. Read that conversion and select a new voltage source
+  3. Start conversion for temperature
+  4. Read that conversion and select a new temperature source
+  5. Calculate all fault types
+
+  This way there is always a big delay between selecting a source, starting the conversion, and reading
+  the new value.
+*/
 void ADCClass::handleTick()
 {
 	//these track which reading we are about to request
 	static byte vNum = 0, tNum = 0; //which voltage and thermistor reading we're on
 	static byte Operation = 0; //quad way operation 0 = read voltage, 1 = start new voltage reading, 2 = read temperature, 3 = start new temperature reading and calculate faults
-	
-	//these track the proper place to save in. It is one before vNum and tNum
-	byte vSave, tSave;
+	static uint16_t EEPROMWriteCounter = 0;
 
-	int vTemp, tTemp;
-
-	//avoid negative numbers
-	vSave = (vNum + 3) % 4;
-	tSave = (tNum + 3) % 4;
+	int32_t vTemp, tTemp;
 
 	int16_t readValue;
 
 	int x;
+	float divisor;
+
+	float vHigh, vLow, quadVolt, perVolt;
+	int perMilliVolt;
+	int thisTemperature;
+
+	//This is just an opportune place because it is the only place that currently has a timer set up. Probably should move
+	//this to a better place and set up another timer
+	//125ms tick * 500 = 62.5 second interval for writing which gives us at least a full year of run time.
+	EEPROMWriteCounter++;
+	if (EEPROMWriteCounter > 500)
+	{
+		EEPROMWriteCounter = 0;
+		EEPROM.write(0, settings);
+	}
+
 	switch (Operation) 
 	{
-	case 0:
+	case 0: //start by asking to begin an ADC reading for voltage
+		adsStartConversion(VIN_ADDR);
+		break;
+	case 1: //its been some time since we asked for the reading so ask for it now
 		//read the values from the previous cycle
 		//if there is a problem we won't update the values stored
 		if (adsGetData(VIN_ADDR, readValue))
 		{
-			vReading[vSave][vReadingPos] = readValue;
+			vReading[vNum][vReadingPos] = readValue;
 			vReadingPos = (vReadingPos + 1) % SAMPLES;
 			vTemp = 0;
 			for (x = 0; x < SAMPLES; x++)
 			{
-				vTemp += vReading[vSave][x];
+				vTemp += vReading[vNum][x];
 			}
 			vTemp /= SAMPLES;
-			vAccum[vSave] = vTemp;
+			vAccum[vNum] = vTemp;
 		}
 		else Logger::error("Error reading voltage");
 
-		Logger::debug("V1: %f V2: %f V3: %f V4: %f", getVoltage(0), getVoltage(1), getVoltage(2), getVoltage(3));
-		Logger::debug("AV1: %f AV2: %f AV3: %f AV4: %f", getVoltage(0) / 26.0f, getVoltage(1) / 28.0f, getVoltage(2) / 26.0f, getVoltage(3) / 24.0f);
-		Logger::debug("Total system voltage: %f", getVoltage(0) + getVoltage(1) + getVoltage(2) + getVoltage(3));
+		divisor = 1.0f;
+		if (settings.numQuadCells[vNum] > 0) divisor = (float)settings.numQuadCells[vNum];
+		Logger::debug("V%i: %f AV%i %f", vNum, getVoltage(vNum), vNum, getVoltage(vNum) / divisor);		
+		//if (vNum == 3) Logger::debug("Total system voltage: %f", getVoltage(0) + getVoltage(1) + getVoltage(2) + getVoltage(3));
 
-		setVEnable(vNum++);
+		vNum = (vNum + 1) & 3;
+
+		setVEnable(vNum);
 		break;
-	case 1:
-		adsStartConversion(VIN_ADDR);
-		break;
+
 	case 2:
+		adsStartConversion(THERM_ADDR);
+		break;
+
+	case 3:
 		if (adsGetData(THERM_ADDR, readValue))
 		{
 			//Logger::debug("TL: %i", readValue);
-			tReading[tSave][tReadingPos] = readValue;
+			tReading[tNum][tReadingPos] = readValue;
 			tReadingPos = (tReadingPos + 1) % SAMPLES;
 			tTemp = 0;
 			for (x = 0; x < SAMPLES; x++)
 			{
-				tTemp += tReading[tSave][x];
+				tTemp += tReading[tNum][x];
 			}
 			tTemp /= SAMPLES;
-			tAccum[tSave] = tTemp;
+			tAccum[tNum] = tTemp;
 		}
 		else Logger::error("Error reading temperature");
-		setThermActive(SWITCH_THERM1 + tNum++);
-		tNum &= 3;
-		Logger::debug("T1: %f T2: %f T3: %f T4: %f", getTemperature(0), getTemperature(1), getTemperature(2), getTemperature(3));
-		Logger::debug(" ");
-		break;
-	case 3:
-		adsStartConversion(THERM_ADDR);
 
-		float vHigh = -10000.0f, vLow = 30000.0f, quadVolt, perVolt;
-		int perMilliVolt;
-		int thisTemperature;
+		Logger::debug("T%i: %f", tNum, getTemperature(tNum));
+		Logger::debug(" ");
+
+		tNum = tNum + 1;
+		tNum &= 3;
+		setThermActive(SWITCH_THERM1 + tNum);
+		break;
+	case 4: //calculate the various faults
+		vHigh = -10000.0f;
+		vLow = 30000.0f;
 
 		//default to being OK and set them off if necessary.
 		status.CHARGE_OK = 1;
@@ -239,63 +251,59 @@ void ADCClass::handleTick()
 		status.HIGHT = 0;
 		status.HIGHV = 0;
 
-		if (vNum == 4)
+		for (int y = 0; y < 4; y++)
 		{
-			vNum = 0;
-			for (int y = 0; y < 4; y++)
+			quadVolt = getVoltage(y);
+			divisor = 1.0f;
+			if (settings.numQuadCells[y] > 0) divisor = (float)settings.numQuadCells[y];
+			perVolt = quadVolt / divisor;
+			perMilliVolt = (int)(quadVolt * 1000);
+			thisTemperature = (int)(getTemperature(y) * 10);
+			if (perVolt > vHigh) vHigh = perVolt;
+			if (perVolt < vLow) vLow = perVolt;
+
+			if (perMilliVolt > settings.highThreshold)
 			{
-				quadVolt = getVoltage(y);
-				perVolt = quadVolt / (float)settings.numQuadCells[y];
-				perMilliVolt = (int)(quadVolt * 1000);
-				thisTemperature = (int)(getTemperature(y) * 10);
-				if (perVolt > vHigh) vHigh = perVolt;
-				if (perVolt < vLow) vLow = perVolt;
-
-				if (perMilliVolt > settings.highThreshold)
-				{
-					status.HIGHV = 1;
-					status.CHARGE_OK = 0;
-				}
-
-				if (perMilliVolt < settings.lowThreshold)
-				{
-					status.LOWV = 1;
-					status.DISCHARGE_OK = 0;
-				}
-
-				if (thisTemperature > settings.highTempThresh)
-				{
-					status.HIGHT = 1;
-					status.DISCHARGE_OK = 0;
-					status.CHARGE_OK = 0;
-				}
-
-				if (thisTemperature < settings.lowTempThresh)
-				{
-					status.LOWT = 1;
-					status.DISCHARGE_OK = 0;
-					status.CHARGE_OK = 0;
-				}
+				status.HIGHV = 1;
+				status.CHARGE_OK = 0;
 			}
 
-			//Now, if the difference between vLow and vHigh is too high then there is a serious pack balancing problem
-			//and we should let someone know
-			if ((int)((vHigh - vLow) * 1000) > settings.balanceThreshold)
+			if (perMilliVolt < settings.lowThreshold)
 			{
-				Logger::debug("Pack voltage imbalance!");
-				status.IMBALANCE = 1;
-				status.CHARGE_OK = 0; //not OK to charge if pack is out of wack
-				status.DISCHARGE_OK = 0; //also not OK to discharge
+				status.LOWV = 1;
+				status.DISCHARGE_OK = 0;
 			}
-			else status.IMBALANCE = 0;
+
+			if (thisTemperature > settings.highTempThresh)
+			{
+				status.HIGHT = 1;
+				status.DISCHARGE_OK = 0;
+				status.CHARGE_OK = 0;
+			}
+
+			if (thisTemperature < settings.lowTempThresh)
+			{
+				status.LOWT = 1;
+				status.DISCHARGE_OK = 0;
+				status.CHARGE_OK = 0;
+			}
 		}
 
-
+		//Now, if the difference between vLow and vHigh is too high then there is a serious pack balancing problem
+		//and we should let someone know
+		if ((int)((vHigh - vLow) * 1000) > settings.balanceThreshold)
+		{
+			Logger::debug("Pack voltage imbalance!");
+			status.IMBALANCE = 1;
+			status.CHARGE_OK = 0; //not OK to charge if pack is out of wack
+			status.DISCHARGE_OK = 0; //also not OK to discharge
+		}
+		else status.IMBALANCE = 0;
 		break;
 	}
 	
 	Operation++;
-	Operation &= 3;
+	if (Operation == 5) Operation = 0;
 }
 
 int ADCClass::getRawV(int which)
@@ -321,9 +329,11 @@ float ADCClass::getVoltage(int which)
 
 float ADCClass::getCellAvgVoltage(int which)
 {
+	float divisor = 1.0f;
 	if (which < 0) return 0.0f;
 	if (which > 3) return 0.0f;
-	return (vAccum[which] * settings.vMultiplier[which] / (float)settings.numQuadCells[which]);
+	if (settings.numQuadCells[which] > 0) divisor = (float)settings.numQuadCells[which];
+	return (vAccum[which] * settings.vMultiplier[which] / divisor);
 }
 
 float ADCClass::getPackVoltage()

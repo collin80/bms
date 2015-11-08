@@ -31,7 +31,7 @@
 #include "config.h"
 #include "i2c_adc.h"
 #include "cab300.h"
-
+#include "ElconCharger.h"
 
 #ifndef CANBUSCLASS_H_
 #define CANBUSCLASS_H_
@@ -50,5 +50,6 @@ private:
 	static CANBusHandler* instance;
 	ADCClass *adc;
 	CAB300 *cab300;
+	ElconCharger *elcon;
 };
 #endif

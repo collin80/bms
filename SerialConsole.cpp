@@ -108,6 +108,10 @@ void SerialConsole::printMenu() {
 	Logger::console("HIGHTEMP=%i - Set highest acceptable temperature (In tenths of a deg C)", settings.highTempThresh);
 	SerialUSB.println();
 
+	Logger::console("CHARGEV=%i - Set voltage to charge to (Elcon Charger)", settings.chargingVoltage);
+	Logger::console("CHARGEA=%i - Set maximum charge amperage (Elcon Charger)", settings.chargingAmperage);
+	SerialUSB.println();
+
 	Logger::console("Q1CELLS=%i - Set number of series cells in quadrant 1", settings.numQuadCells[0]);
 	Logger::console("Q2CELLS=%i - Set number of series cells in quadrant 2", settings.numQuadCells[1]);
 	Logger::console("Q3CELLS=%i - Set number of series cells in quadrant 3", settings.numQuadCells[2]);
@@ -262,9 +266,6 @@ void SerialConsole::handleConsoleCmd() {
 	ptrBuffer = 0; //reset line counter once the line has been processed
 }
 
-/*For simplicity the configuration setting code uses four characters for each configuration choice. This makes things easier for
- comparison purposes.
- */
 void SerialConsole::handleConfigCmd() {
 	int i;
 	int newValue;
@@ -370,6 +371,24 @@ void SerialConsole::handleConfigCmd() {
 			writeEEPROM = true;
 		}
 		else Logger::console("Invalid threshold! Set between -400 and 1000");
+	}
+	else if (cmdString == String("CHARGEV")) {
+		if (newValue >= 0 && newValue <= 5000)
+		{
+			Logger::console("Setting charge voltage threshold (tenths of volt) to %i", newValue);
+			settings.chargingVoltage = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid voltage! Set between 0 and 5000 tenths of a volt.");
+	}
+	else if (cmdString == String("CHARGEA")) {
+		if (newValue >= 0 && newValue <= 400)
+		{
+			Logger::console("Setting max charge amperage (tenths of A) to %i", newValue);
+			settings.chargingAmperage = newValue;
+			writeEEPROM = true;
+		}
+		else Logger::console("Invalid amperage! Set between 0 and 400 tenths of an amp");
 	} else if (cmdString == String("Q1CELLS")) {
 		if (newValue >= 0 && newValue <= 120) 
 		{
